@@ -1,8 +1,8 @@
 import React, { useState, useRef } from "react";
 import { useDrag, useDrop } from "react-dnd";
-import { format } from "date-fns";
-import { User, Project, WeeklyHour, ProjectWeekNote, ProjectStatus } from "../../data/types";
-import { Archive, Check, GripVertical } from "lucide-react";
+import { format, addDays } from "date-fns";
+import { User, Project, WeeklyHour, ProjectWeekNote, ProjectStatus, Milestone } from "../../data/types";
+import { Archive, Check, GripVertical, Diamond } from "lucide-react";
 import { Input } from "../ui/input";
 import { cn } from "../../../lib/utils";
 import { GridColumn } from "../../utils/dateUtils";
@@ -37,6 +37,7 @@ interface ProjectRowProps {
   onProjectClick: (project: Project) => void;
   onCellClick?: (projectId: string, column: GridColumn) => void;
   projectWeekNotes?: ProjectWeekNote[];
+  milestones?: Milestone[];
   onUpdateProjectNote?: (projectId: string, weekStart: string, note: string, type: 'info' | 'warning' | 'important') => void;
   onUpdateProjectStatus?: (id: string, status: ProjectStatus) => void;
   // Drag-to-reorder (on the board)
@@ -235,6 +236,46 @@ const CellNote = ({
     );
 };
 
+/** Ruitje linksboven in de weekcel voor elke milestone die in die week valt. */
+const CellMilestones = ({ items }: { items: Milestone[] }) => {
+    if (items.length === 0) return null;
+
+    const today = format(new Date(), "yyyy-MM-dd");
+    const worst = items.some(m => !m.done && m.dueDate < today)
+        ? "overdue"
+        : items.every(m => m.done)
+            ? "done"
+            : "open";
+
+    const color = worst === "overdue"
+        ? "text-red-500 fill-red-500"
+        : worst === "done"
+            ? "text-emerald-500 fill-emerald-500"
+            : "text-violet-400 fill-violet-400";
+
+    return (
+        <Tooltip delayDuration={0}>
+            <TooltipTrigger asChild>
+                <span className="absolute z-20 top-0.5 left-1 flex items-center gap-0.5 pointer-events-auto">
+                    <Diamond className={cn("h-2.5 w-2.5", color)} />
+                    {items.length > 1 && (
+                        <span className="text-[9px] leading-none text-muted-foreground">{items.length}</span>
+                    )}
+                </span>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="z-50">
+                <div className="space-y-0.5">
+                    {items.map(m => (
+                        <p key={m.id} className={cn("text-xs", m.done && "line-through opacity-60")}>
+                            {m.dueDate.split("-").reverse().join("-")} — {m.title}
+                        </p>
+                    ))}
+                </div>
+            </TooltipContent>
+        </Tooltip>
+    );
+};
+
 export const ProjectRow: React.FC<ProjectRowProps> = ({
   project,
   columns,
@@ -245,6 +286,7 @@ export const ProjectRow: React.FC<ProjectRowProps> = ({
   onProjectClick,
   onCellClick,
   projectWeekNotes = [],
+  milestones = [],
   onUpdateProjectNote,
   onUpdateProjectStatus,
   dragIndex,
@@ -419,16 +461,25 @@ export const ProjectRow: React.FC<ProjectRowProps> = ({
           
           // Note Logic
           const dateKey = col.type === "week" ? format(col.date, "yyyy-MM-dd") : "";
-          const noteObject = !isMonth && projectWeekNotes 
+          const noteObject = !isMonth && projectWeekNotes
             ? projectWeekNotes.find(n => n.projectId === project.id && n.weekStartDate === dateKey)
             : undefined;
-          
+
+          // Milestones die binnen deze week (maandag t/m zondag) vallen
+          const weekEndKey = !isMonth ? format(addDays(col.date, 6), "yyyy-MM-dd") : "";
+          const cellMilestones = !isMonth
+            ? milestones.filter(m =>
+                m.projectId === project.id && m.dueDate >= dateKey && m.dueDate <= weekEndKey)
+            : [];
+
           return (
           <div key={i} className={cn(
             "flex-1 min-w-[60px] p-0 border-r border-dashed border-border/40 flex items-center justify-center relative group/cell",
             isMonth && "min-w-[100px] border-solid bg-muted/5"
           )}>
             
+            <CellMilestones items={cellMilestones} />
+
             {/* Note Button (Centered Vertical, Right of Number) */}
             {!isMonth && onUpdateProjectNote && (
                 <CellNote 

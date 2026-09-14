@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import {
   User, Project, Client, WeeklyHour, WeeklyNote, ProjectWeekNote, ProjectAssignment,
-  Category, ProjectStatus
+  Category, ProjectStatus, Milestone
 } from "../../data/types";
 import { getWeeksForMonth, formatDateKey, generateGridColumns } from "../../utils/dateUtils";
 import { Header } from "./Header";
@@ -27,6 +27,7 @@ export const PlanningDashboard: React.FC = () => {
   const [weeklyHours, setWeeklyHours] = useState<WeeklyHour[]>([]);
   const [projectWeekNotes, setProjectWeekNotes] = useState<ProjectWeekNote[]>([]);
   const [projectAssignments, setProjectAssignments] = useState<ProjectAssignment[]>([]);
+  const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const isFirstRender = React.useRef(true);
 
@@ -44,6 +45,7 @@ export const PlanningDashboard: React.FC = () => {
         setWeeklyHours(data.weeklyHours ?? []);
         setProjectAssignments(data.assignments ?? []);
         setProjectWeekNotes(data.projectWeekNotes ?? []);
+        setMilestones(data.milestones ?? []);
 
       } catch (error) {
         console.error("Failed to load data", error);
@@ -107,6 +109,29 @@ export const PlanningDashboard: React.FC = () => {
 
     return () => clearTimeout(timer);
   }, [projectWeekNotes, isLoading]);
+
+  // Debounced save for milestones
+  const isFirstMilestoneRender = React.useRef(true);
+  React.useEffect(() => {
+    if (isLoading) return;
+    if (isFirstMilestoneRender.current) {
+      isFirstMilestoneRender.current = false;
+      return;
+    }
+
+    const timer = setTimeout(() => {
+       planningApi.saveMilestones(milestones).catch(() => {
+         toast.error("Couldn't save milestones — please reload the page");
+       });
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, [milestones, isLoading]);
+
+  const handleUpdateMilestones = (projectId: string, next: Milestone[]) => {
+    // De modal levert de volledige lijst voor één project; de rest blijft staan.
+    setMilestones(prev => [...prev.filter(m => m.projectId !== projectId), ...next]);
+  };
   
   // Modal State
   const [editingProject, setEditingProject] = useState<Project | null>(null);
@@ -515,6 +540,7 @@ export const PlanningDashboard: React.FC = () => {
           onUpdateHours={handleUpdateHours}
           projectWeekNotes={projectWeekNotes}
           onUpdateProjectNote={handleUpdateProjectNote}
+          milestones={milestones}
           searchQuery={searchQuery}
           selectedPersonId={selectedPersonId}
           selectedStatuses={selectedStatuses}
@@ -553,6 +579,8 @@ export const PlanningDashboard: React.FC = () => {
         weeklyHours={weeklyHours}
         onUpdateAssignments={handleUpdateAssignments}
         onCreateClient={handleAddClientReturnId}
+        milestones={milestones}
+        onUpdateMilestones={handleUpdateMilestones}
       />
 
       <ClientModal 

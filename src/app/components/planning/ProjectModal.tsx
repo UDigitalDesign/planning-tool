@@ -4,8 +4,8 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Textarea } from "../ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
-import { Project, User, Client, ProjectStatus, ProjectAssignment, WeeklyHour } from "../../data/types";
-import { Check, ChevronsUpDown, X, Plus } from "lucide-react";
+import { Project, User, Client, ProjectStatus, ProjectAssignment, WeeklyHour, Milestone } from "../../data/types";
+import { Check, ChevronsUpDown, X, Plus, Trash2 } from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "../ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { cn } from "../../../lib/utils";
@@ -21,6 +21,8 @@ interface ProjectModalProps {
   weeklyHours: WeeklyHour[];
   onUpdateAssignments: (projectId: string, userIds: string[]) => void;
   onCreateClient?: (name: string) => string;
+  milestones?: Milestone[];
+  onUpdateMilestones?: (projectId: string, milestones: Milestone[]) => void;
 }
 
 const PROJECT_NAME_SUGGESTIONS = [
@@ -225,14 +227,20 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
   weeklyHours,
   onUpdateAssignments,
   onCreateClient,
+  milestones = [],
+  onUpdateMilestones,
 }) => {
   const [formData, setFormData] = useState<Partial<Project>>({});
   const [pendingTeam, setPendingTeam] = useState<string[]>([]);
+  const [newMilestoneTitle, setNewMilestoneTitle] = useState("");
+  const [newMilestoneDate, setNewMilestoneDate] = useState("");
 
   useEffect(() => {
     if (project) {
       setFormData({ ...project });
       setPendingTeam([]);
+      setNewMilestoneTitle("");
+      setNewMilestoneDate("");
     }
   }, [project]);
 
@@ -249,6 +257,35 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
       onSave({ ...project, ...formData } as Project);
     }
     onClose();
+  };
+
+  // Milestones horen bij een bestaand project; een nieuw project heeft nog geen id
+  // om aan te koppelen, dus die sectie verschijnt pas na opslaan.
+  const projectMilestones = project.id
+    ? milestones
+        .filter(m => m.projectId === project.id)
+        .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
+    : [];
+
+  const commitMilestones = (next: Milestone[]) => {
+    if (project.id) onUpdateMilestones?.(project.id, next);
+  };
+
+  const addMilestone = () => {
+    if (!newMilestoneTitle.trim() || !newMilestoneDate) return;
+    commitMilestones([
+      ...projectMilestones,
+      {
+        id: Math.random().toString(36).slice(2, 11),
+        projectId: project.id,
+        title: newMilestoneTitle.trim(),
+        dueDate: newMilestoneDate,
+        endDate: null,
+        done: false,
+      },
+    ]);
+    setNewMilestoneTitle("");
+    setNewMilestoneDate("");
   };
 
   const clientName = clients.find(c => c.id === formData.clientId)?.name || "-";
@@ -432,6 +469,86 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
                 placeholder="Add project details..."
               />
            </div>
+
+           {/* Milestones — deadlines zoals "Oplevering deel A" */}
+           {!isNewProject && onUpdateMilestones && (
+             <>
+               <div className="h-px bg-zinc-900" />
+               <div className="space-y-2">
+                 <label className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">
+                   Milestones
+                 </label>
+
+                 <div className="space-y-0.5">
+                   {projectMilestones.map(m => (
+                     <div
+                       key={m.id}
+                       className="group flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-xs hover:bg-zinc-900"
+                     >
+                       <button
+                         type="button"
+                         onClick={() => commitMilestones(
+                           projectMilestones.map(x => x.id === m.id ? { ...x, done: !x.done } : x)
+                         )}
+                         className={cn(
+                           "w-4 h-4 rounded border flex items-center justify-center flex-none transition-colors",
+                           m.done
+                             ? "bg-emerald-600 border-emerald-600 text-white"
+                             : "border-zinc-700 hover:border-zinc-500"
+                         )}
+                         title={m.done ? "Markeer als open" : "Markeer als gehaald"}
+                       >
+                         {m.done && <Check className="h-2.5 w-2.5" />}
+                       </button>
+                       <span className={cn("flex-1 truncate", m.done ? "text-zinc-600 line-through" : "text-zinc-200")}>
+                         {m.title}
+                       </span>
+                       <span className="text-[10px] text-zinc-500 tabular-nums flex-none">
+                         {m.dueDate.split("-").reverse().join("-")}
+                       </span>
+                       <button
+                         type="button"
+                         onClick={() => commitMilestones(projectMilestones.filter(x => x.id !== m.id))}
+                         className="opacity-0 group-hover:opacity-100 text-zinc-600 hover:text-red-400 flex-none"
+                         title="Verwijderen"
+                       >
+                         <Trash2 className="h-3 w-3" />
+                       </button>
+                     </div>
+                   ))}
+                   {projectMilestones.length === 0 && (
+                     <p className="px-2.5 py-1 text-[11px] text-zinc-600">Nog geen milestones.</p>
+                   )}
+                 </div>
+
+                 <div className="flex gap-1.5 pt-1">
+                   <Input
+                     value={newMilestoneTitle}
+                     onChange={(e) => setNewMilestoneTitle(e.target.value)}
+                     onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addMilestone(); } }}
+                     placeholder="Oplevering deel A"
+                     className="flex-1 h-8 bg-zinc-900 border-zinc-800 text-zinc-100 text-xs focus-visible:ring-zinc-700 placeholder:text-zinc-600"
+                   />
+                   <Input
+                     type="date"
+                     value={newMilestoneDate}
+                     onChange={(e) => setNewMilestoneDate(e.target.value)}
+                     onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addMilestone(); } }}
+                     className="w-[130px] h-8 bg-zinc-900 border-zinc-800 text-zinc-100 text-xs focus-visible:ring-zinc-700"
+                   />
+                   <Button
+                     type="button"
+                     onClick={addMilestone}
+                     disabled={!newMilestoneTitle.trim() || !newMilestoneDate}
+                     className="h-8 w-8 p-0 flex-none bg-zinc-800 hover:bg-zinc-700 text-zinc-100 disabled:opacity-40"
+                     title="Milestone toevoegen"
+                   >
+                     <Plus className="h-3.5 w-3.5" />
+                   </Button>
+                 </div>
+               </div>
+             </>
+           )}
 
            {/* Team Allocation — shown for both new and existing projects */}
            <>

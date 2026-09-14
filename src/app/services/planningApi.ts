@@ -7,11 +7,30 @@ import {
   ProjectAssignment,
   ProjectWeekNote,
   WeeklyNote,
+  Milestone,
 } from "../data/types";
 
 // ============================================================
 // Mapping helpers: DB (snake_case) <-> App (camelCase)
 // ============================================================
+
+const mapMilestoneFromDb = (row: any): Milestone => ({
+  id: row.id,
+  projectId: row.project_id,
+  title: row.title,
+  dueDate: row.due_date,
+  endDate: row.end_date ?? null,
+  done: !!row.done,
+});
+
+const mapMilestoneToDb = (m: Milestone) => ({
+  id: m.id,
+  project_id: m.projectId,
+  title: m.title,
+  due_date: m.dueDate,
+  end_date: m.endDate || null,
+  done: m.done,
+});
 
 const mapUserFromDb = (row: any): User => ({
   id: row.id,
@@ -128,7 +147,7 @@ export const planningApi = {
   // ---- GET ALL DATA ----
   getData: async () => {
     try {
-      const [usersRes, clientsRes, projectsRes, hoursRes, assignmentsRes, projectNotesRes, userNotesRes] =
+      const [usersRes, clientsRes, projectsRes, hoursRes, assignmentsRes, projectNotesRes, userNotesRes, milestonesRes] =
         await Promise.all([
           supabase.from("users").select("*").order("name"),
           supabase.from("clients").select("*"),
@@ -137,6 +156,7 @@ export const planningApi = {
           supabase.from("assignments").select("*"),
           supabase.from("project_week_notes").select("*"),
           supabase.from("user_week_notes").select("*"),
+          supabase.from("project_milestones").select("*").order("due_date"),
         ]);
 
       return {
@@ -152,6 +172,7 @@ export const planningApi = {
           : null,
         projectWeekNotes: projectNotesRes.data ? projectNotesRes.data.map(mapProjectNoteFromDb) : null,
         userWeekNotes: userNotesRes.data ? userNotesRes.data.map(mapUserNoteFromDb) : null,
+        milestones: milestonesRes.data ? milestonesRes.data.map(mapMilestoneFromDb) : null,
       };
     } catch (error) {
       console.error("API getData Error:", error);
@@ -163,6 +184,7 @@ export const planningApi = {
         assignments: null,
         projectWeekNotes: null,
         userWeekNotes: null,
+        milestones: null,
       };
     }
   },
@@ -311,6 +333,33 @@ export const planningApi = {
       }
     } catch (error) {
       console.error("saveProjectWeekNotes Error:", error);
+      throw error;
+    }
+  },
+
+  // ---- MILESTONES ----
+  saveMilestones: async (milestones: Milestone[]) => {
+    try {
+      if (milestones.length === 0) {
+        const { error } = await supabase.from("project_milestones").delete().neq("id", "___none___");
+        if (error) console.warn("Delete all milestones error:", error);
+        return;
+      }
+
+      const rows = milestones.map(mapMilestoneToDb);
+      const { error } = await supabase
+        .from("project_milestones")
+        .upsert(rows, { onConflict: "id" });
+      if (error) throw error;
+
+      const ids = milestones.map((m) => m.id);
+      const { error: delError } = await supabase
+        .from("project_milestones")
+        .delete()
+        .not("id", "in", `(${ids.join(",")})`);
+      if (delError) console.warn("Delete stale milestones error:", delError);
+    } catch (error) {
+      console.error("saveMilestones Error:", error);
       throw error;
     }
   },

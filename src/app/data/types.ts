@@ -66,3 +66,12 @@ export interface ProjectWeekNote {
   note: string;
   type?: 'info' | 'warning' | 'important';
 }
+
+export interface Milestone {
+  id: string;
+  projectId: string;
+  title: string;
+  dueDate: string;        // yyyy-MM-dd
+  endDate?: string | null; // gevuld bij een periode (bv. design sprint), anders null
+  done: boolean;
+}

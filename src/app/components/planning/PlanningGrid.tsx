@@ -1,7 +1,7 @@
 import React, { useState, useRef } from "react";
 import { useDrag, useDrop } from "react-dnd";
 import { ChevronDown, ChevronRight, Plus, MoreHorizontal, Pencil, ChevronsDown, ChevronsUp, Archive, GripVertical } from "lucide-react";
-import { Project, Client, User, WeeklyHour, Category, ProjectStatus, ProjectWeekNote, ProjectAssignment } from "../../data/types";
+import { Project, Client, User, WeeklyHour, Category, ProjectStatus, ProjectWeekNote, ProjectAssignment, Milestone } from "../../data/types";
 import { ProjectRow } from "./ProjectRow";
 import { DensityContext, useDensity, Density } from "./DensityContext";
 import { cn } from "../../../lib/utils";
@@ -50,6 +50,7 @@ interface PlanningGridProps {
   onDeleteProject?: (id: string) => void;
   expandState?: { id: number; expanded: boolean };
   projectWeekNotes?: ProjectWeekNote[];
+  milestones?: Milestone[];
   onUpdateProjectNote?: (projectId: string, weekStart: string, note: string, type: 'info' | 'warning' | 'important') => void;
   onToggleAssignment?: (projectId: string, userId: string, assigned: boolean) => void;
   density?: Density;
@@ -85,6 +86,7 @@ export const PlanningGrid: React.FC<PlanningGridProps> = ({
   onDeleteProject,
   expandState, // Kept for interface compatibility but functionality moved to Category level
   projectWeekNotes = [],
+  milestones = [],
   onUpdateProjectNote,
   onToggleAssignment,
   density = "comfortable",
@@ -316,6 +318,7 @@ export const PlanningGrid: React.FC<PlanningGridProps> = ({
             onAddInternalProject={onAddInternalProject}
             searchQuery={searchQuery}
             projectWeekNotes={projectWeekNotes}
+            milestones={milestones}
             onUpdateProjectNote={onUpdateProjectNote}
             onUpdateProjectStatus={onUpdateProjectStatus}
           />
@@ -536,10 +539,11 @@ const CategoryGroup: React.FC<{
   onAddInternalProject: (name: string) => void;
   searchQuery: string;
   projectWeekNotes: ProjectWeekNote[];
+  milestones: Milestone[];
   onUpdateProjectNote?: (projectId: string, weekStart: string, note: string, type: 'info' | 'warning' | 'important') => void;
   onUpdateProjectStatus?: (id: string, status: ProjectStatus) => void;
   stickyOffset: number;
-}> = ({ category, categoryProjects, allProjects, clients, columns, users, weeklyHours, onUpdateHours, selectedPersonId, onProjectClick, getClient, onCellClick, onAddProject, onAddClient, onManageCategory, onManageClientProjects, onOpenRenameClient, onArchiveClient, onReorderClients, onReorderProjects, onAddClientDirect, onAddProjectDirect, onAddInternalProject, searchQuery, projectWeekNotes, onUpdateProjectNote, onUpdateProjectStatus, stickyOffset }) => {
+}> = ({ category, categoryProjects, allProjects, clients, columns, users, weeklyHours, onUpdateHours, selectedPersonId, onProjectClick, getClient, onCellClick, onAddProject, onAddClient, onManageCategory, onManageClientProjects, onOpenRenameClient, onArchiveClient, onReorderClients, onReorderProjects, onAddClientDirect, onAddProjectDirect, onAddInternalProject, searchQuery, projectWeekNotes, milestones, onUpdateProjectNote, onUpdateProjectStatus, stickyOffset }) => {
   const density = useDensity();
   // Internal starts collapsed — it's rarely the focus when scanning the board.
   const [isOpen, setIsOpen] = useState(category !== "Internal");
@@ -759,6 +763,7 @@ const CategoryGroup: React.FC<{
                   onArchiveClient={() => onArchiveClient(clientId)}
                   expandState={clientExpandState}
                   projectWeekNotes={projectWeekNotes}
+                  milestones={milestones}
                   onUpdateProjectNote={onUpdateProjectNote}
                   onUpdateProjectStatus={onUpdateProjectStatus}
                   dragIndex={index}
@@ -795,6 +800,7 @@ const CategoryGroup: React.FC<{
                    onProjectClick={onProjectClick}
                    onCellClick={onCellClick}
                    projectWeekNotes={projectWeekNotes}
+                   milestones={milestones}
                    onUpdateProjectNote={onUpdateProjectNote}
                    onUpdateProjectStatus={onUpdateProjectStatus}
                    dragIndex={index}
@@ -840,6 +846,7 @@ const ClientGroup: React.FC<{
   onArchiveClient: () => void;
   expandState?: { id: number; expanded: boolean };
   projectWeekNotes: ProjectWeekNote[];
+  milestones: Milestone[];
   onUpdateProjectNote?: (projectId: string, weekStart: string, note: string, type: 'info' | 'warning' | 'important') => void;
   onUpdateProjectStatus?: (id: string, status: ProjectStatus) => void;
   // Drag-to-reorder this client header within its category
@@ -848,7 +855,7 @@ const ClientGroup: React.FC<{
   moveRow?: (from: number, to: number) => void;
   onDropCommit?: () => void;
   stickyTop?: number;
-}> = ({ client, category, projects, columns, users, weeklyHours, onUpdateHours, selectedPersonId, onProjectClick, onCellClick, onAddProject, onAddProjectDirect, onReorderProjects, onManageProjects, onRenameClient, onArchiveClient, expandState, projectWeekNotes, onUpdateProjectNote, onUpdateProjectStatus, dragIndex, dragType, moveRow, onDropCommit, stickyTop = 0 }) => {
+}> = ({ client, category, projects, columns, users, weeklyHours, onUpdateHours, selectedPersonId, onProjectClick, onCellClick, onAddProject, onAddProjectDirect, onReorderProjects, onManageProjects, onRenameClient, onArchiveClient, expandState, projectWeekNotes, milestones, onUpdateProjectNote, onUpdateProjectStatus, dragIndex, dragType, moveRow, onDropCommit, stickyTop = 0 }) => {
   const density = useDensity();
   const [isOpen, setIsOpen] = useState(true);
 
@@ -1002,6 +1009,7 @@ const ClientGroup: React.FC<{
                 onProjectClick={onProjectClick}
                 onCellClick={onCellClick}
                 projectWeekNotes={projectWeekNotes}
+                milestones={milestones}
                 onUpdateProjectNote={onUpdateProjectNote}
                 onUpdateProjectStatus={onUpdateProjectStatus}
                 dragIndex={index}
