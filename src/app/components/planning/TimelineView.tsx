@@ -4,9 +4,10 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 import { Project, Client, WeeklyHour, ProjectStatus, Milestone, Category, ProjectAssignment } from "../../data/types";
 import { cn } from "../../../lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
+import { useDensity } from "./DensityContext";
 
 const COL = 26;          // width of one week column in px
-const NAME_W = 250;      // width of the frozen left column
+const NAME_W = 384;      // w-96, same frozen left column as the hours grid
 const WEEKS_BEFORE = 6;  // how far back the timeline starts
 const WEEKS_AHEAD = 32;  // and how far ahead it runs
 
@@ -66,6 +67,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
   searchQuery,
   onProjectClick,
 }) => {
+  const density = useDensity();
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const scrollerRef = useRef<HTMLDivElement>(null);
   const didScroll = useRef(false);
@@ -210,8 +212,13 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
       return next;
     });
 
+  /** Hours for the person being filtered on, or the whole team when none is. */
   const totalHours = (p: Project) =>
     Object.values(hoursByProject[p.id] || {}).reduce((a, b) => a + b, 0);
+
+  /** Always the whole team, so the planned / sold badge reads the same as the grid. */
+  const teamHours = (p: Project) =>
+    weeklyHours.reduce((sum, h) => (h.projectId === p.id ? sum + h.hours : sum), 0);
 
   // --- month headers -------------------------------------------------------
   const monthSpans = useMemo(() => {
@@ -244,24 +251,53 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
     const projectMilestones = milestones.filter(m => m.projectId === p.id);
 
     return (
-      <div key={p.id} className="flex border-b border-border/30 hover:bg-muted/20 group/row">
-        <button
-          type="button"
-          onClick={() => onProjectClick(p)}
-          className={cn(
-            "flex-none border-r pr-3 py-2 flex items-center gap-2 text-left bg-background group-hover/row:bg-muted/20",
-            indented ? "pl-6" : "pl-3"
-          )}
+      <div key={p.id} className="flex border-b hover:bg-muted/5 transition-colors group">
+        {/* Same sidebar as the hours grid: tree line, name, planned / sold badge */}
+        <div
+          className="flex-none flex p-0 border-r bg-background"
           style={{ width: NAME_W, position: "sticky", left: 0, zIndex: 2 }}
         >
-          <span className={cn("w-1 h-1 rounded-full flex-none", STATUS_DOT[p.status])} />
-          <span className="text-xs truncate">{p.name}</span>
-          {p.budget ? (
-            <span className="ml-auto text-[10px] text-muted-foreground tabular-nums flex-none">
-              {p.budget}h
-            </span>
-          ) : null}
-        </button>
+          <div className={cn("flex-none relative flex justify-center items-center", indented ? "w-10" : "w-2")}>
+            {indented && <div className="w-px h-full bg-border/30" />}
+          </div>
+
+          <div className={cn(
+            "flex-1 pr-3 pl-2 flex items-center justify-between min-w-0 gap-2",
+            density === "compact" ? "py-0.5" : "py-1.5"
+          )}>
+            <div className="flex items-center gap-2 overflow-hidden">
+              <span className={cn("w-1 h-1 rounded-full flex-none", STATUS_DOT[p.status])} />
+              <button
+                type="button"
+                onClick={() => onProjectClick(p)}
+                className="font-normal text-sm truncate pr-2 text-left hover:text-primary hover:underline"
+                title={p.name}
+              >
+                {p.name}
+              </button>
+            </div>
+
+            {/* Planned vs. sold, matching the hours grid. Internal projects run
+                all year, so a lifetime total there is noise. */}
+            {p.category !== "Internal" && (
+              <div className={cn(
+                "flex items-center gap-1 text-[11px] tabular-nums leading-none text-zinc-400 bg-zinc-800/60 px-2 rounded border border-zinc-700/30 whitespace-nowrap flex-none",
+                density === "compact" ? "py-0.5" : "py-1"
+              )}>
+                {selectedPersonId !== "all" && totalHours(p) > 0 && (
+                  <span className="text-zinc-200 mr-0.5">({Math.round(totalHours(p))})</span>
+                )}
+                <span className={cn(
+                  teamHours(p) > (p.budget || 0) && (p.budget || 0) > 0 ? "text-orange-400" : "text-zinc-300"
+                )}>
+                  {Math.round(teamHours(p))}
+                </span>
+                <span className="text-zinc-600 mx-0.5">/</span>
+                <span className="text-zinc-400">{p.budget ? p.budget : "-"}</span>
+              </div>
+            )}
+          </div>
+        </div>
 
         <div
           className="relative"
@@ -273,7 +309,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
         >
           {span && (
             <div
-              className="absolute top-1.5 h-4 rounded-sm overflow-hidden flex"
+              className="absolute top-1/2 -translate-y-1/2 h-4 rounded-sm overflow-hidden flex"
               style={{
                 left: span.start * COL + 2,
                 width: (span.end - span.start + 1) * COL - 4,
@@ -308,7 +344,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
               <Tooltip key={m.id} delayDuration={0}>
                 <TooltipTrigger asChild>
                   <span
-                    className="absolute top-2 w-3.5 h-3.5 -ml-[7px] flex items-center justify-center z-[2]"
+                    className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 -ml-[7px] flex items-center justify-center z-[2]"
                     style={{ left: col * COL + COL / 2 }}
                   >
                     <span
@@ -346,7 +382,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
           {/* header with months and day-of-month numbers */}
           <div className="flex sticky top-0 z-[40] bg-muted/30 backdrop-blur border-b">
             <div
-              className="flex-none border-r px-3 flex items-center text-[10px] uppercase tracking-wider text-muted-foreground bg-muted/30"
+              className="flex-none border-r px-4 flex items-center text-[10px] uppercase tracking-wider text-muted-foreground bg-muted/30"
               style={{ width: NAME_W, position: "sticky", left: 0, zIndex: 2 }}
             >
               Client / project
@@ -398,20 +434,23 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
             ].reduce((sum, p) => sum + totalHours(p), 0);
 
             return (
-              <div key={section.category}>
-                {/* Category band — same split as the hours grid */}
-                <div className="flex border-y bg-secondary text-secondary-foreground shadow-sm">
+              <div key={section.category} className="mb-10">
+                {/* Category band — the one level that carries real weight, as in the grid */}
+                <div className="flex bg-secondary text-secondary-foreground border-y shadow-sm">
                   <button
                     type="button"
                     onClick={() => toggleRow(section.category)}
-                    className="flex-none border-r px-3 py-1.5 flex items-center gap-1.5 text-left bg-secondary"
+                    className={cn(
+                      "flex-none border-r px-4 flex items-center text-left bg-secondary hover:bg-secondary/90 transition-colors",
+                      density === "compact" ? "py-1.5" : "py-2"
+                    )}
                     style={{ width: NAME_W, position: "sticky", left: 0, zIndex: 2 }}
                   >
                     {sectionOpen
-                      ? <ChevronDown className="h-4 w-4 flex-none" />
-                      : <ChevronRight className="h-4 w-4 flex-none" />}
-                    <span className="text-sm font-medium truncate">{section.category}</span>
-                    <span className="ml-auto text-[10px] opacity-70 tabular-nums flex-none">
+                      ? <ChevronDown className="h-4 w-4 mr-2 flex-none" />
+                      : <ChevronRight className="h-4 w-4 mr-2 flex-none" />}
+                    <span className="font-bold text-xs uppercase tracking-wider truncate">{section.category}</span>
+                    <span className="ml-auto text-[11px] opacity-70 tabular-nums flex-none">
                       {Math.round(sectionHours)}h
                     </span>
                   </button>
@@ -429,18 +468,21 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
 
                       return (
                         <div key={key}>
-                          <div className="flex border-b border-border/40 bg-muted/10">
+                          <div className="flex bg-background hover:bg-muted/20 transition-colors border-b border-border/40">
                             <button
                               type="button"
                               onClick={() => toggleRow(key)}
-                              className="flex-none border-r px-3 py-1.5 flex items-center gap-1.5 text-left hover:bg-muted/30 bg-muted/10"
+                              className={cn(
+                                "flex-none border-r pr-4 pl-2 flex items-center gap-1 text-left",
+                                density === "compact" ? "py-1" : "py-1.5"
+                              )}
                               style={{ width: NAME_W, position: "sticky", left: 0, zIndex: 2 }}
                             >
                               {isOpen
-                                ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground flex-none" />
-                                : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground flex-none" />}
-                              <span className="text-xs font-medium truncate">{group.name}</span>
-                              <span className="ml-auto text-[10px] text-muted-foreground tabular-nums flex-none">
+                                ? <ChevronDown className="h-4 w-4 text-muted-foreground flex-none" />
+                                : <ChevronRight className="h-4 w-4 text-muted-foreground flex-none" />}
+                              <span className="font-medium text-sm truncate">{group.name}</span>
+                              <span className="ml-auto text-[11px] text-muted-foreground tabular-nums flex-none">
                                 {Math.round(groupHours)}h
                               </span>
                             </button>
