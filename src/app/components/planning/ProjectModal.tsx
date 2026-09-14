@@ -260,8 +260,8 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
     onClose();
   };
 
-  // Milestones horen bij een bestaand project; een nieuw project heeft nog geen id
-  // om aan te koppelen, dus die sectie verschijnt pas na opslaan.
+  // Milestones hang off a saved project; a new one has no id to link to yet, so
+  // the section only appears once the project has been saved.
   const projectMilestones = project.id
     ? milestones
         .filter(m => m.projectId === project.id)
@@ -412,11 +412,11 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
                     </Select>
                 </div>
                 
-                {/* Begin van de balk op de tijdlijn. Het einde volgt uit de
-                    laatste deadline, zodat er niets dubbel bijgehouden wordt. */}
+                {/* Where the bar starts on the timeline. The end follows from the
+                    last deadline, so there is no second date to keep in sync. */}
                 <div className="space-y-1">
                     <label className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">
-                        Startdatum
+                        Start date
                     </label>
                     <Input
                       type="date"
@@ -485,7 +485,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
               />
            </div>
 
-           {/* Milestones — deadlines zoals "Oplevering deel A" */}
+           {/* Milestones — deadlines such as "Part A delivery" */}
            {!isNewProject && onUpdateMilestones && (
              <>
                <div className="h-px bg-zinc-900" />
@@ -506,7 +506,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
                            projectMilestones.map(x => x.id === m.id ? { ...x, soft: !x.soft } : x)
                          )}
                          className="w-3 h-3 flex items-center justify-center flex-none"
-                         title={m.soft ? "Zachte deadline — klik voor hard" : "Harde deadline — klik voor zacht"}
+                         title={m.soft ? "Soft deadline — click to make it hard" : "Hard deadline — click to make it soft"}
                        >
                          <span
                            className={cn(
@@ -525,14 +525,14 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
                          type="button"
                          onClick={() => commitMilestones(projectMilestones.filter(x => x.id !== m.id))}
                          className="opacity-0 group-hover:opacity-100 text-zinc-600 hover:text-red-400 flex-none"
-                         title="Verwijderen"
+                         title="Delete"
                        >
                          <Trash2 className="h-3 w-3" />
                        </button>
                      </div>
                    ))}
                    {projectMilestones.length === 0 && (
-                     <p className="px-2.5 py-1 text-[11px] text-zinc-600">Nog geen milestones.</p>
+                     <p className="px-2.5 py-1 text-[11px] text-zinc-600">No milestones yet.</p>
                    )}
                  </div>
 
@@ -541,7 +541,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
                      type="button"
                      onClick={() => setNewMilestoneSoft(v => !v)}
                      className="h-8 w-8 flex-none flex items-center justify-center rounded-md border border-zinc-800 bg-zinc-900 hover:border-zinc-700"
-                     title={newMilestoneSoft ? "Zachte deadline" : "Harde deadline"}
+                     title={newMilestoneSoft ? "Soft deadline" : "Hard deadline"}
                    >
                      <span
                        className={cn(
@@ -554,7 +554,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
                      value={newMilestoneTitle}
                      onChange={(e) => setNewMilestoneTitle(e.target.value)}
                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addMilestone(); } }}
-                     placeholder="Oplevering deel A"
+                     placeholder="Part A delivery"
                      className="flex-1 h-8 bg-zinc-900 border-zinc-800 text-zinc-100 text-xs focus-visible:ring-zinc-700 placeholder:text-zinc-600"
                    />
                    <Input
@@ -569,7 +569,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
                      onClick={addMilestone}
                      disabled={!newMilestoneTitle.trim() || !newMilestoneDate}
                      className="h-8 w-8 p-0 flex-none bg-zinc-800 hover:bg-zinc-700 text-zinc-100 disabled:opacity-40"
-                     title="Milestone toevoegen"
+                     title="Add milestone"
                    >
                      <Plus className="h-3.5 w-3.5" />
                    </Button>

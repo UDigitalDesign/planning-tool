@@ -130,7 +130,7 @@ export const PlanningDashboard: React.FC = () => {
   }, [milestones, isLoading]);
 
   const handleUpdateMilestones = (projectId: string, next: Milestone[]) => {
-    // De modal levert de volledige lijst voor één project; de rest blijft staan.
+    // The sheet hands back the full list for one project; the rest stays put.
     setMilestones(prev => [...prev.filter(m => m.projectId !== projectId), ...next]);
   };
   
@@ -545,6 +545,7 @@ export const PlanningDashboard: React.FC = () => {
           clients={clients}
           weeklyHours={weeklyHours}
           milestones={milestones}
+          projectAssignments={projectAssignments}
           selectedPersonId={selectedPersonId}
           selectedStatuses={selectedStatuses}
           searchQuery={searchQuery}

@@ -5,12 +5,12 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 
 /**
- * Het team deelt één Supabase-account. Het e-mailadres staat vast, zodat het
- * inlogscherm alleen om een wachtwoord vraagt.
+ * The team shares one Supabase account. The email address is fixed here, so the
+ * sign-in screen only ever asks for a password.
  *
- * Dit is geen frontend-check: Supabase valideert het wachtwoord en geeft pas
- * daarna een sessie af. De RLS-policies staan op `authenticated`, dus zonder
- * die sessie levert de anon key nul rijen op.
+ * This is not a front-end check: Supabase validates the password and only then
+ * hands out a session. The RLS policies are scoped to `authenticated`, so
+ * without that session the anon key returns zero rows.
  */
 export const SHARED_ACCOUNT_EMAIL = "planning@u-digital.nl";
 
@@ -49,7 +49,7 @@ export const PasswordGate: React.FC<PasswordGateProps> = ({ children }) => {
     });
 
     if (signInError) {
-      setError("Onjuist wachtwoord");
+      setError("Wrong password");
       setPassword("");
     }
     setSubmitting(false);
@@ -72,7 +72,7 @@ export const PasswordGate: React.FC<PasswordGateProps> = ({ children }) => {
         <div className="space-y-1">
           <h1 className="text-lg font-medium text-foreground">Planning</h1>
           <p className="text-sm text-muted-foreground">
-            Voer het teamwachtwoord in om verder te gaan.
+            Enter the team password to continue.
           </p>
         </div>
 
@@ -80,7 +80,7 @@ export const PasswordGate: React.FC<PasswordGateProps> = ({ children }) => {
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          placeholder="Wachtwoord"
+          placeholder="Password"
           autoFocus
           autoComplete="current-password"
           disabled={submitting}
@@ -89,7 +89,7 @@ export const PasswordGate: React.FC<PasswordGateProps> = ({ children }) => {
         {error && <p className="text-sm text-destructive">{error}</p>}
 
         <Button type="submit" className="w-full" disabled={submitting || !password}>
-          {submitting ? "Bezig…" : "Inloggen"}
+          {submitting ? "Signing in…" : "Sign in"}
         </Button>
       </form>
     </div>

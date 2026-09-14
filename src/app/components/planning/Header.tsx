@@ -99,7 +99,7 @@ export const Header: React.FC<HeaderProps> = ({
             Overview
           </Button>
 
-          {/* Zelfde projecten, andere tekening: uren per week of looptijd in de tijd. */}
+          {/* Same projects, drawn differently: hours per week, or how long each runs. */}
           <div className="flex items-center gap-1 bg-muted rounded-md p-1">
             <Button
               variant="ghost"
@@ -211,7 +211,7 @@ export const Header: React.FC<HeaderProps> = ({
             variant="ghost"
             size="icon"
             onClick={() => supabase.auth.signOut()}
-            title="Uitloggen"
+            title="Sign out"
           >
             <LogOut className="h-4 w-4" />
           </Button>

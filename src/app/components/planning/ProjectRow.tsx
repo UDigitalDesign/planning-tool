@@ -236,13 +236,13 @@ const CellNote = ({
     );
 };
 
-/** Ruitje linksboven in de weekcel voor elke milestone die in die week valt. */
+/** Diamond in the top-left of the week cell for every milestone falling in it. */
 const CellMilestones = ({ items }: { items: Milestone[] }) => {
     if (items.length === 0) return null;
 
     const today = format(new Date(), "yyyy-MM-dd");
-    // De vorm zegt wat voor deadline het is: gevuld = hard, open = zacht.
-    // Een datum die al geweest is zakt naar de achtergrond.
+    // The shape says which kind of deadline it is: filled = hard, outlined = soft.
+    // A date that has passed drops back.
     const past = items.every(m => m.dueDate < today);
     const anyHard = items.some(m => !m.soft);
     const tone = past ? "border-muted-foreground/60 bg-muted-foreground/60" : "border-emerald-400 bg-emerald-400";
@@ -269,7 +269,7 @@ const CellMilestones = ({ items }: { items: Milestone[] }) => {
                     {items.map(m => (
                         <p key={m.id} className="text-xs">
                             {m.dueDate.split("-").reverse().join("-")} — {m.title}
-                            {m.soft && <span className="text-muted-foreground"> · zacht</span>}
+                            {m.soft && <span className="text-muted-foreground"> · soft</span>}
                         </p>
                     ))}
                 </div>
@@ -467,7 +467,7 @@ export const ProjectRow: React.FC<ProjectRowProps> = ({
             ? projectWeekNotes.find(n => n.projectId === project.id && n.weekStartDate === dateKey)
             : undefined;
 
-          // Milestones die binnen deze week (maandag t/m zondag) vallen
+          // Milestones falling inside this week (Monday through Sunday)
           const weekEndKey = !isMonth ? format(addDays(col.date, 6), "yyyy-MM-dd") : "";
           const cellMilestones = !isMonth
             ? milestones.filter(m =>

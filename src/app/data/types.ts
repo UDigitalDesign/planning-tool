@@ -1,4 +1,4 @@
-// Gedeelde types voor de planningstool. De data komt uit Supabase.
+// Shared types for the planning tool. The data itself comes from Supabase.
 
 export type Role = "Admin" | "Member" | "Read-only";
 export type Category = "Billable projects" | "Non-billable projects" | "Internal";
@@ -37,7 +37,7 @@ export interface Project {
   expectancy?: string; // Free text for pipeline projects
   budget?: number; // Total sold hours
   order?: number;
-  startDate?: string | null; // yyyy-MM-dd, begin van de balk op de tijdlijn
+  startDate?: string | null; // yyyy-MM-dd, where the timeline bar starts
 }
 
 export interface ProjectAssignment {
@@ -73,6 +73,6 @@ export interface Milestone {
   projectId: string;
   title: string;
   dueDate: string;        // yyyy-MM-dd
-  endDate?: string | null; // gevuld bij een periode (bv. design sprint), anders null
-  soft: boolean;           // zachte deadline (intern) i.p.v. harde (richting klant)
+  endDate?: string | null; // set for a period (e.g. a design sprint), otherwise null
+  soft: boolean;           // soft (internal) deadline rather than hard (towards the client)
 }

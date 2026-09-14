@@ -1,18 +1,18 @@
 import React, { useState, useMemo, useRef } from "react";
 import { startOfWeek, addWeeks, subWeeks, format } from "date-fns";
 import { ChevronDown, ChevronRight } from "lucide-react";
-import { Project, Client, WeeklyHour, ProjectStatus, Milestone } from "../../data/types";
+import { Project, Client, WeeklyHour, ProjectStatus, Milestone, Category, ProjectAssignment } from "../../data/types";
 import { cn } from "../../../lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 
-const COL = 26;          // breedte van één weekkolom in px
-const NAME_W = 250;      // breedte van de vaste linkerkolom
-const WEEKS_BEFORE = 6;  // hoeveel weken terug de tijdlijn begint
-const WEEKS_AHEAD = 32;  // en hoe ver hij vooruit loopt
+const COL = 26;          // width of one week column in px
+const NAME_W = 250;      // width of the frozen left column
+const WEEKS_BEFORE = 6;  // how far back the timeline starts
+const WEEKS_AHEAD = 32;  // and how far ahead it runs
 
-const MONTHS_NL = ["jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug", "sep", "okt", "nov", "dec"];
 
-/** rgb-triplet per status, zodat de balk in dekking kan variëren naar drukte */
+
+/** rgb triplet per status, so a bar can vary in opacity with how busy the week is */
 const STATUS_RGB: Record<string, string> = {
   "Active": "16,185,129",
   "Pipeline": "59,130,246",
@@ -29,7 +29,7 @@ const STATUS_DOT: Record<string, string> = {
   "Archived": "bg-slate-600",
 };
 
-/** Meer uren in een week = vollere kleur. */
+/** More hours in a week means a fuller colour. */
 const intensity = (hours: number) => {
   if (hours <= 0) return 0;
   if (hours < 2) return 0.28;
@@ -38,12 +38,16 @@ const intensity = (hours: number) => {
   return 1;
 };
 
+/** Same order as the hours grid. */
+const CATEGORY_ORDER: Category[] = ["Billable projects", "Non-billable projects", "Internal"];
+
 interface TimelineViewProps {
   currentDate: Date;
   projects: Project[];
   clients: Client[];
   weeklyHours: WeeklyHour[];
   milestones: Milestone[];
+  projectAssignments: ProjectAssignment[];
   selectedPersonId: string | "all";
   selectedStatuses: ProjectStatus[];
   searchQuery: string;
@@ -56,6 +60,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
   clients,
   weeklyHours,
   milestones,
+  projectAssignments,
   selectedPersonId,
   selectedStatuses,
   searchQuery,
@@ -67,7 +72,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
 
   const todayKey = format(new Date(), "yyyy-MM-dd");
 
-  // --- weekas -------------------------------------------------------------
+  // --- week axis ----------------------------------------------------------
   const weeks = useMemo(() => {
     const start = subWeeks(startOfWeek(currentDate, { weekStartsOn: 1 }), WEEKS_BEFORE);
     return Array.from({ length: WEEKS_BEFORE + WEEKS_AHEAD }, (_, i) => addWeeks(start, i));
@@ -80,7 +85,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
   );
   const trackWidth = weeks.length * COL;
 
-  /** Index van de kolom waar een datum in valt; -1 als hij buiten beeld ligt. */
+  /** Index of the column a date falls in; -1 when it sits outside the view. */
   const columnFor = (dateKey?: string | null) => {
     if (!dateKey) return -1;
     if (dateKey < weekKeys[0]) return -1;
@@ -92,7 +97,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
 
   const todayCol = columnFor(todayKey);
 
-  // --- uren per project per week -----------------------------------------
+  // --- hours per project per week -----------------------------------------
   const hoursByProject = useMemo(() => {
     const map: Record<string, Record<string, number>> = {};
     for (const h of weeklyHours) {
@@ -104,34 +109,67 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
     return map;
   }, [weeklyHours, selectedPersonId]);
 
-  // --- zichtbare projecten, gegroepeerd per klant -------------------------
-  const groups = useMemo(() => {
+  /**
+   * Projects the filtered person is tied to: assigned to them, or carrying hours
+   * of theirs. The second catches projects someone works on without ever having
+   * been formally assigned.
+   */
+  const projectsOfPerson = useMemo(() => {
+    if (selectedPersonId === "all") return null;
+    const ids = new Set<string>();
+    for (const a of projectAssignments) {
+      if (a.userId === selectedPersonId) ids.add(a.projectId);
+    }
+    for (const h of weeklyHours) {
+      if (h.userId === selectedPersonId && h.hours > 0) ids.add(h.projectId);
+    }
+    return ids;
+  }, [projectAssignments, weeklyHours, selectedPersonId]);
+
+  // --- visible projects: category > client > project -----------------------
+  const sections = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    const clientName = (id?: string) => clients.find(c => c.id === id)?.name || "Zonder klant";
+    const clientName = (id?: string) => clients.find(c => c.id === id)?.name || "";
 
     const visible = projects.filter(p => {
       if (!selectedStatuses.includes(p.status)) return false;
+      // Filtering on one person: drop the clients they have nothing to do with.
+      if (projectsOfPerson && !projectsOfPerson.has(p.id)) return false;
       if (!q) return true;
       return p.name.toLowerCase().includes(q) || clientName(p.clientId).toLowerCase().includes(q);
     });
 
-    const byClient = new Map<string, Project[]>();
-    for (const p of visible) {
-      const name = clientName(p.clientId);
-      if (!byClient.has(name)) byClient.set(name, []);
-      byClient.get(name)!.push(p);
-    }
+    return CATEGORY_ORDER.map(category => {
+      const inCategory = visible.filter(p => p.category === category);
 
-    return [...byClient.entries()]
-      .map(([name, ps]) => ({ name, projects: ps.sort((a, b) => a.name.localeCompare(b.name)) }))
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [projects, clients, selectedStatuses, searchQuery]);
+      const byClient = new Map<string, Project[]>();
+      const loose: Project[] = []; // projects without a client, mostly internal
 
-  // --- balkbereik per project --------------------------------------------
+      for (const p of inCategory) {
+        const name = clientName(p.clientId);
+        if (!name) { loose.push(p); continue; }
+        if (!byClient.has(name)) byClient.set(name, []);
+        byClient.get(name)!.push(p);
+      }
+
+      const byName = (a: Project, b: Project) => a.name.localeCompare(b.name);
+
+      return {
+        category,
+        clients: [...byClient.entries()]
+          .map(([name, ps]) => ({ name, projects: ps.sort(byName) }))
+          .sort((a, b) => a.name.localeCompare(b.name)),
+        loose: loose.sort(byName),
+        count: inCategory.length,
+      };
+    }).filter(s => s.count > 0);
+  }, [projects, clients, selectedStatuses, searchQuery, projectsOfPerson]);
+
+  // --- bar span per project -----------------------------------------------
   /**
-   * Begin: de startdatum als die is ingevuld, anders de eerste week met uren.
-   * Eind: de laatste deadline, anders de laatste week met uren.
-   * Zo hoeft niemand een einddatum apart bij te houden.
+   * Start: the start date when set, otherwise the first week carrying hours.
+   * End: the last deadline, otherwise the last week carrying hours. That way
+   * nobody has to keep a separate end date in sync.
    */
   const spanFor = (p: Project) => {
     const weeksWithHours = Object.keys(hoursByProject[p.id] || {}).sort();
@@ -148,7 +186,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
     const endKey = lastDeadline && (!lastHour || lastDeadline > lastHour) ? lastDeadline : lastHour;
     if (!startKey || !endKey) return null;
 
-    // Clamp op het zichtbare bereik, zodat een balk die eerder begon toch doorloopt.
+    // Clamp to the visible range so a bar that started earlier still runs in.
     const rawStart = columnFor(startKey);
     const start = rawStart === -1 ? (startKey < weekKeys[0] ? 0 : -1) : rawStart;
     const end = columnFor(endKey);
@@ -157,7 +195,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
     return { start, end, plannedEnd: columnFor(lastHour) };
   };
 
-  // eerste render: schuif naar vandaag in plaats van naar het verleden
+  // First render: scroll to today rather than into the past
   React.useEffect(() => {
     const el = scrollerRef.current;
     if (!el || didScroll.current || todayCol < 0) return;
@@ -165,14 +203,17 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
     didScroll.current = true;
   }, [todayCol]);
 
-  const toggleClient = (name: string) =>
+  const toggleRow = (key: string) =>
     setCollapsed(prev => {
       const next = new Set(prev);
-      next.has(name) ? next.delete(name) : next.add(name);
+      next.has(key) ? next.delete(key) : next.add(key);
       return next;
     });
 
-  // --- maandkoppen --------------------------------------------------------
+  const totalHours = (p: Project) =>
+    Object.values(hoursByProject[p.id] || {}).reduce((a, b) => a + b, 0);
+
+  // --- month headers -------------------------------------------------------
   const monthSpans = useMemo(() => {
     const out: { label: string; span: number }[] = [];
     let i = 0;
@@ -183,7 +224,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
       while (i + span < weeks.length
         && weeks[i + span].getMonth() === m
         && weeks[i + span].getFullYear() === y) span++;
-      out.push({ label: `${MONTHS_NL[m]} ${String(y).slice(2)}`, span });
+      out.push({ label: format(weeks[i], "MMM yy"), span });
       i += span;
     }
     return out;
@@ -197,18 +238,118 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
       />
     );
 
+  const renderProject = (p: Project, indented: boolean) => {
+    const span = spanFor(p);
+    const rgb = STATUS_RGB[p.status] || STATUS_RGB.Active;
+    const projectMilestones = milestones.filter(m => m.projectId === p.id);
+
+    return (
+      <div key={p.id} className="flex border-b border-border/30 hover:bg-muted/20 group/row">
+        <button
+          type="button"
+          onClick={() => onProjectClick(p)}
+          className={cn(
+            "flex-none border-r pr-3 py-2 flex items-center gap-2 text-left bg-background group-hover/row:bg-muted/20",
+            indented ? "pl-6" : "pl-3"
+          )}
+          style={{ width: NAME_W, position: "sticky", left: 0, zIndex: 2 }}
+        >
+          <span className={cn("w-1 h-1 rounded-full flex-none", STATUS_DOT[p.status])} />
+          <span className="text-xs truncate">{p.name}</span>
+          {p.budget ? (
+            <span className="ml-auto text-[10px] text-muted-foreground tabular-nums flex-none">
+              {p.budget}h
+            </span>
+          ) : null}
+        </button>
+
+        <div
+          className="relative"
+          style={{
+            width: trackWidth,
+            backgroundImage:
+              `repeating-linear-gradient(to right, hsl(var(--border)/0.35) 0 1px, transparent 1px ${COL}px)`,
+          }}
+        >
+          {span && (
+            <div
+              className="absolute top-1.5 h-4 rounded-sm overflow-hidden flex"
+              style={{
+                left: span.start * COL + 2,
+                width: (span.end - span.start + 1) * COL - 4,
+              }}
+            >
+              {Array.from({ length: span.end - span.start + 1 }, (_, i) => {
+                const key = weekKeys[span.start + i];
+                const h = hoursByProject[p.id]?.[key] || 0;
+                return (
+                  <div
+                    key={i}
+                    title={`${key} · ${h ? h + " hours" : "no hours"}`}
+                    className={cn(
+                      "flex-none",
+                      h === 0 && "bg-[repeating-linear-gradient(-45deg,rgba(255,255,255,0.08)_0_3px,transparent_3px_6px)]"
+                    )}
+                    style={{
+                      width: COL,
+                      background: h > 0 ? `rgba(${rgb},${intensity(h)})` : undefined,
+                    }}
+                  />
+                );
+              })}
+            </div>
+          )}
+
+          {projectMilestones.map(m => {
+            const col = columnFor(m.dueDate);
+            if (col < 0) return null;
+            const past = m.dueDate < todayKey;
+            return (
+              <Tooltip key={m.id} delayDuration={0}>
+                <TooltipTrigger asChild>
+                  <span
+                    className="absolute top-2 w-3.5 h-3.5 -ml-[7px] flex items-center justify-center z-[2]"
+                    style={{ left: col * COL + COL / 2 }}
+                  >
+                    <span
+                      className={cn(
+                        "block w-2 h-2 rotate-45 box-border ring-1 ring-background",
+                        m.soft
+                          ? cn("bg-transparent border-[1.5px]",
+                              past ? "border-muted-foreground/60" : "border-emerald-400")
+                          : past ? "bg-muted-foreground/60" : "bg-emerald-400"
+                      )}
+                    />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="z-50">
+                  <p className="text-xs">
+                    {format(new Date(m.dueDate), "d MMM yyyy")} — {m.title}
+                    {m.soft && <span className="text-muted-foreground"> · soft</span>}
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            );
+          })}
+
+          <TodayLine />
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="flex-1 overflow-auto bg-background">
       <div ref={scrollerRef} className="overflow-x-auto">
         <div className="min-w-max">
 
-          {/* kop met maanden en weeknummers */}
+          {/* header with months and day-of-month numbers */}
           <div className="flex sticky top-0 z-[40] bg-muted/30 backdrop-blur border-b">
             <div
               className="flex-none border-r px-3 flex items-center text-[10px] uppercase tracking-wider text-muted-foreground bg-muted/30"
               style={{ width: NAME_W, position: "sticky", left: 0, zIndex: 2 }}
             >
-              Klant / project
+              Client / project
             </div>
             <div className="relative" style={{ width: trackWidth }}>
               <div className="flex h-6 items-center">
@@ -238,39 +379,40 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
                   className="absolute top-1 -translate-x-1/2 text-[9px] uppercase tracking-wider px-1.5 rounded bg-foreground text-background z-[3]"
                   style={{ left: todayCol * COL + COL / 2 }}
                 >
-                  vandaag
+                  today
                 </div>
               )}
             </div>
           </div>
-
-          {groups.length === 0 && (
+          {sections.length === 0 && (
             <p className="px-4 py-10 text-sm text-muted-foreground">
-              Geen projecten die aan de filters voldoen.
+              No projects match the current filters.
             </p>
           )}
 
-          {groups.map(group => {
-            const isOpen = !collapsed.has(group.name);
-            const groupHours = group.projects.reduce(
-              (sum, p) => sum + Object.values(hoursByProject[p.id] || {}).reduce((a, b) => a + b, 0), 0);
+          {sections.map(section => {
+            const sectionOpen = !collapsed.has(section.category);
+            const sectionHours = [
+              ...section.clients.flatMap(c => c.projects),
+              ...section.loose,
+            ].reduce((sum, p) => sum + totalHours(p), 0);
 
             return (
-              <div key={group.name}>
-                {/* klantband */}
-                <div className="flex border-b border-border/40 bg-muted/10">
+              <div key={section.category}>
+                {/* Category band — same split as the hours grid */}
+                <div className="flex border-y bg-secondary text-secondary-foreground shadow-sm">
                   <button
                     type="button"
-                    onClick={() => toggleClient(group.name)}
-                    className="flex-none border-r px-3 py-1.5 flex items-center gap-1.5 text-left hover:bg-muted/30 bg-muted/10"
+                    onClick={() => toggleRow(section.category)}
+                    className="flex-none border-r px-3 py-1.5 flex items-center gap-1.5 text-left bg-secondary"
                     style={{ width: NAME_W, position: "sticky", left: 0, zIndex: 2 }}
                   >
-                    {isOpen
-                      ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground flex-none" />
-                      : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground flex-none" />}
-                    <span className="text-xs font-medium truncate">{group.name}</span>
-                    <span className="ml-auto text-[10px] text-muted-foreground tabular-nums flex-none">
-                      {Math.round(groupHours)}u
+                    {sectionOpen
+                      ? <ChevronDown className="h-4 w-4 flex-none" />
+                      : <ChevronRight className="h-4 w-4 flex-none" />}
+                    <span className="text-sm font-medium truncate">{section.category}</span>
+                    <span className="ml-auto text-[10px] opacity-70 tabular-nums flex-none">
+                      {Math.round(sectionHours)}h
                     </span>
                   </button>
                   <div className="relative" style={{ width: trackWidth }}>
@@ -278,99 +420,44 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
                   </div>
                 </div>
 
-                {isOpen && group.projects.map(p => {
-                  const span = spanFor(p);
-                  const rgb = STATUS_RGB[p.status] || STATUS_RGB.Active;
-                  const projectMilestones = milestones.filter(m => m.projectId === p.id);
+                {sectionOpen && (
+                  <>
+                    {section.clients.map(group => {
+                      const key = section.category + "/" + group.name;
+                      const isOpen = !collapsed.has(key);
+                      const groupHours = group.projects.reduce((sum, p) => sum + totalHours(p), 0);
 
-                  return (
-                    <div key={p.id} className="flex border-b border-border/30 hover:bg-muted/20 group/row">
-                      <button
-                        type="button"
-                        onClick={() => onProjectClick(p)}
-                        className="flex-none border-r pl-6 pr-3 py-2 flex items-center gap-2 text-left bg-background group-hover/row:bg-muted/20"
-                        style={{ width: NAME_W, position: "sticky", left: 0, zIndex: 2 }}
-                      >
-                        <span className={cn("w-1 h-1 rounded-full flex-none", STATUS_DOT[p.status])} />
-                        <span className="text-xs truncate">{p.name}</span>
-                        {p.budget ? (
-                          <span className="ml-auto text-[10px] text-muted-foreground tabular-nums flex-none">
-                            {p.budget}u
-                          </span>
-                        ) : null}
-                      </button>
-
-                      <div
-                        className="relative"
-                        style={{
-                          width: trackWidth,
-                          backgroundImage:
-                            `repeating-linear-gradient(to right, hsl(var(--border)/0.35) 0 1px, transparent 1px ${COL}px)`,
-                        }}
-                      >
-                        {span && (
-                          <div
-                            className="absolute top-1.5 h-4 rounded-sm overflow-hidden flex"
-                            style={{
-                              left: span.start * COL + 2,
-                              width: (span.end - span.start + 1) * COL - 4,
-                            }}
-                          >
-                            {Array.from({ length: span.end - span.start + 1 }, (_, i) => {
-                              const key = weekKeys[span.start + i];
-                              const h = hoursByProject[p.id]?.[key] || 0;
-                              return (
-                                <div
-                                  key={i}
-                                  title={`${key} · ${h ? h + " uur" : "geen uren"}`}
-                                  className={cn("flex-none", h === 0 && "bg-[repeating-linear-gradient(-45deg,rgba(255,255,255,0.08)_0_3px,transparent_3px_6px)]")}
-                                  style={{
-                                    width: COL,
-                                    background: h > 0 ? `rgba(${rgb},${intensity(h)})` : undefined,
-                                  }}
-                                />
-                              );
-                            })}
+                      return (
+                        <div key={key}>
+                          <div className="flex border-b border-border/40 bg-muted/10">
+                            <button
+                              type="button"
+                              onClick={() => toggleRow(key)}
+                              className="flex-none border-r px-3 py-1.5 flex items-center gap-1.5 text-left hover:bg-muted/30 bg-muted/10"
+                              style={{ width: NAME_W, position: "sticky", left: 0, zIndex: 2 }}
+                            >
+                              {isOpen
+                                ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground flex-none" />
+                                : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground flex-none" />}
+                              <span className="text-xs font-medium truncate">{group.name}</span>
+                              <span className="ml-auto text-[10px] text-muted-foreground tabular-nums flex-none">
+                                {Math.round(groupHours)}h
+                              </span>
+                            </button>
+                            <div className="relative" style={{ width: trackWidth }}>
+                              <TodayLine />
+                            </div>
                           </div>
-                        )}
 
-                        {projectMilestones.map(m => {
-                          const col = columnFor(m.dueDate);
-                          if (col < 0) return null;
-                          const past = m.dueDate < todayKey;
-                          return (
-                            <Tooltip key={m.id} delayDuration={0}>
-                              <TooltipTrigger asChild>
-                                <span
-                                  className="absolute top-2 w-3.5 h-3.5 -ml-[7px] flex items-center justify-center z-[2]"
-                                  style={{ left: col * COL + COL / 2 }}
-                                >
-                                  <span
-                                    className={cn(
-                                      "block w-2 h-2 rotate-45 box-border ring-1 ring-background",
-                                      m.soft
-                                        ? cn("bg-transparent border-[1.5px]",
-                                            past ? "border-muted-foreground/60" : "border-emerald-400")
-                                        : past ? "bg-muted-foreground/60" : "bg-emerald-400"
-                                    )}
-                                  />
-                                </span>
-                              </TooltipTrigger>
-                              <TooltipContent side="top" className="z-50">
-                                <p className="text-xs">
-                                  {m.dueDate.split("-").reverse().join("-")} — {m.title}
-                                  {m.soft && <span className="text-muted-foreground"> · zacht</span>}
-                                </p>
-                              </TooltipContent>
-                            </Tooltip>
-                          );
-                        })}
+                          {isOpen && group.projects.map(p => renderProject(p, true))}
+                        </div>
+                      );
+                    })}
 
-                        <TodayLine />
-                      </div>
-                    </div>
-                  );
-                })}
+                    {/* Projects without a client sit straight under the category */}
+                    {section.loose.map(p => renderProject(p, false))}
+                  </>
+                )}
               </div>
             );
           })}
@@ -388,13 +475,13 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
             </span>
             <span className="flex items-center gap-1.5">
               <i className="w-5 h-2 rounded-sm bg-gradient-to-r from-emerald-500/25 to-emerald-500" />
-              weinig → veel uren
+              fewer → more hours
             </span>
             <span className="flex items-center gap-1.5">
-              <i className="w-2 h-2 rotate-45 bg-emerald-400" /> harde deadline
+              <i className="w-2 h-2 rotate-45 bg-emerald-400" /> hard deadline
             </span>
             <span className="flex items-center gap-1.5">
-              <i className="w-2 h-2 rotate-45 border-[1.5px] border-emerald-400 box-border" /> zachte deadline
+              <i className="w-2 h-2 rotate-45 border-[1.5px] border-emerald-400 box-border" /> soft deadline
             </span>
           </div>
         </div>
