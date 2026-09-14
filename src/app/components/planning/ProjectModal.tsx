@@ -23,6 +23,7 @@ interface ProjectModalProps {
   onCreateClient?: (name: string) => string;
   milestones?: Milestone[];
   onUpdateMilestones?: (projectId: string, milestones: Milestone[]) => void;
+  allProjects?: Project[];
 }
 
 const PROJECT_NAME_SUGGESTIONS = [
@@ -229,6 +230,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
   onCreateClient,
   milestones = [],
   onUpdateMilestones,
+  allProjects = [],
 }) => {
   const [formData, setFormData] = useState<Partial<Project>>({});
   const [pendingTeam, setPendingTeam] = useState<string[]>([]);
@@ -287,6 +289,17 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
     setNewMilestoneTitle("");
     setNewMilestoneDate("");
   };
+
+  // Mogelijke opdrachten: andere projecten van dezelfde klant die zelf geen
+  // werkstroom zijn. Eén niveau diep — geen opdracht onder een opdracht.
+  const parentOptions = !formData.clientId
+    ? [] // opdracht/werkstroom is een klantconstruct; interne projecten blijven plat
+    : allProjects.filter(p =>
+        p.id !== project.id &&
+        p.clientId === formData.clientId &&
+        !p.parentId &&
+        !allProjects.some(child => child.parentId === project.id)
+      );
 
   const clientName = clients.find(c => c.id === formData.clientId)?.name || "-";
   const isPipeline = formData.status === "Pipeline";
@@ -410,7 +423,35 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
                         </SelectContent>
                     </Select>
                 </div>
-                
+
+                {/* Opdracht: laat dit project een werkstroom worden onder een ander
+                    project van dezelfde klant (bv. UX desktop onder Website). */}
+                {!isNewProject && parentOptions.length > 0 && (
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">
+                        Onderdeel van
+                    </label>
+                    <Select
+                        value={formData.parentId || "__none__"}
+                        onValueChange={(val) => handleChange("parentId", val === "__none__" ? null : val)}
+                    >
+                        <SelectTrigger className="w-full h-9 bg-zinc-900 border-zinc-800 text-zinc-100 focus:ring-zinc-700 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-zinc-900 border-zinc-800 text-zinc-100">
+                          <SelectItem value="__none__" className="focus:bg-zinc-800 focus:text-white text-xs">
+                            <span className="text-zinc-400">Losstaand project</span>
+                          </SelectItem>
+                          {parentOptions.map(p => (
+                            <SelectItem key={p.id} value={p.id} className="focus:bg-zinc-800 focus:text-white text-xs">
+                              {p.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
                  <div className="space-y-1">
                    <label className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">
                        Budget (Hours)

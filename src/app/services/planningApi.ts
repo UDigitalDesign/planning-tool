@@ -84,6 +84,7 @@ const mapProjectFromDb = (row: any): Project => ({
   expectancy: row.expectancy ?? undefined,
   budget: row.budget != null ? Number(row.budget) : undefined,
   order: row.order ?? undefined,
+  parentId: row.parent_id ?? null,
 });
 
 const mapProjectToDb = (p: Project) => ({
@@ -98,6 +99,7 @@ const mapProjectToDb = (p: Project) => ({
   expectancy: p.expectancy ?? null,
   budget: p.budget ?? null,
   order: p.order ?? null,
+  parent_id: p.parentId || null,
 });
 
 const mapHourFromDb = (row: any): WeeklyHour => ({

@@ -45,6 +45,8 @@ interface ProjectRowProps {
   dragType?: string;
   moveRow?: (from: number, to: number) => void;
   onDropCommit?: () => void;
+  /** Extra inspringing wanneer deze rij een werkstroom onder een opdracht is. */
+  indent?: boolean;
 }
 
 const STATUS_ORDER: ProjectStatus[] = ["Pipeline", "Active", "On Hold", "Completed", "Archived"];
@@ -287,6 +289,7 @@ export const ProjectRow: React.FC<ProjectRowProps> = ({
   onCellClick,
   projectWeekNotes = [],
   milestones = [],
+  indent = false,
   onUpdateProjectNote,
   onUpdateProjectStatus,
   dragIndex,
@@ -389,6 +392,7 @@ export const ProjectRow: React.FC<ProjectRowProps> = ({
     >
       {/* Sidebar / Project Info */}
       <div className="w-96 flex-none flex p-0 border-r relative bg-transparent">
+         {indent && <div className="w-6 flex-none" />}
          {/* Indent Spacer with vertical line / drag handle */}
          <div className="w-10 flex-none relative flex justify-center items-center">
             {/* Tree line */}

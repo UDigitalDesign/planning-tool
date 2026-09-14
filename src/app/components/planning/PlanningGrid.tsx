@@ -34,7 +34,7 @@ interface PlanningGridProps {
   projectAssignments: ProjectAssignment[];
   onProjectClick: (project: Project) => void;
   onAddProject: (clientId?: string, category?: Category) => void;
-  onAddProjectDirect: (name: string, clientId: string) => void;
+  onAddProjectDirect: (name: string, clientId: string, parentId?: string) => void;
   onAddClient: () => void;
   onReorderProjects: (orderedIds: string[]) => void;
   onReorderClients: (orderedIds: string[], category?: Category) => void;
@@ -535,7 +535,7 @@ const CategoryGroup: React.FC<{
   onReorderClients: (orderedIds: string[], category?: Category) => void;
   onReorderProjects: (orderedIds: string[]) => void;
   onAddClientDirect: (name: string, category?: Category) => void;
-  onAddProjectDirect: (name: string, clientId: string) => void;
+  onAddProjectDirect: (name: string, clientId: string, parentId?: string) => void;
   onAddInternalProject: (name: string) => void;
   searchQuery: string;
   projectWeekNotes: ProjectWeekNote[];
@@ -826,6 +826,119 @@ const CategoryGroup: React.FC<{
 };
 
 
+/**
+ * Een opdracht ("Website") met de werkstromen die eronder vallen ("UX desktop",
+ * "UX mobile"). De opdrachtrij draagt projectcode en budget en telt de uren van
+ * de werkstromen op; de werkstromen houden hun eigen uren, team en deadlines.
+ */
+const DeliverableGroup: React.FC<{
+  parent: Project;
+  workstreams: Project[];
+  client: Client;
+  columns: GridColumn[];
+  users: User[];
+  weeklyHours: WeeklyHour[];
+  onUpdateHours: any;
+  selectedPersonId: string | "all";
+  onProjectClick: (project: Project) => void;
+  onCellClick: (projectId: string, column: GridColumn) => void;
+  projectWeekNotes: ProjectWeekNote[];
+  milestones: Milestone[];
+  onUpdateProjectNote: any;
+  onUpdateProjectStatus?: (id: string, status: ProjectStatus) => void;
+  onAddProjectDirect: (name: string, clientId: string, parentId?: string) => void;
+  expandState?: { id: number; expanded: boolean };
+}> = ({
+  parent, workstreams, client, columns, users, weeklyHours, onUpdateHours,
+  selectedPersonId, onProjectClick, onCellClick, projectWeekNotes, milestones,
+  onUpdateProjectNote, onUpdateProjectStatus, onAddProjectDirect, expandState,
+}) => {
+  const density = useDensity();
+  const [isOpen, setIsOpen] = useState(true);
+
+  React.useEffect(() => {
+    if (expandState) setIsOpen(expandState.expanded);
+  }, [expandState]);
+
+  // De opdracht zelf kan ook uren dragen (bv. van vóór de splitsing), dus die telt mee.
+  const rollup = [parent, ...workstreams];
+  const budget = rollup.reduce((sum, p) => sum + (p.budget ?? 0), 0);
+
+  return (
+    <div>
+      <div className="flex bg-muted/10 hover:bg-muted/20 transition-colors border-b border-border/40">
+        <div
+          className={cn(
+            "w-96 flex-none flex items-center gap-1 pr-4 border-r cursor-pointer group",
+            density === "compact" ? "py-1" : "py-1.5"
+          )}
+          onClick={() => setIsOpen(!isOpen)}
+        >
+          <div className="w-6 flex-none" />
+          <button className="text-muted-foreground hover:text-foreground flex-none">
+            {isOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+          </button>
+          <button
+            type="button"
+            className="text-sm font-medium text-foreground truncate hover:underline text-left min-w-0"
+            onClick={(e) => { e.stopPropagation(); onProjectClick({ ...parent, clientName: client.name } as Project); }}
+            title="Opdracht bewerken"
+          >
+            {parent.name}
+          </button>
+          {parent.projectCode && (
+            <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded flex-none">
+              {parent.projectCode}
+            </span>
+          )}
+          {budget > 0 && (
+            <span className="ml-auto text-[10px] text-muted-foreground tabular-nums flex-none">
+              {budget}u
+            </span>
+          )}
+        </div>
+
+        <WeeklyTotalRow
+          columns={columns}
+          projects={rollup}
+          weeklyHours={weeklyHours}
+          selectedPersonId={selectedPersonId}
+          isCategory={false}
+        />
+      </div>
+
+      {isOpen && (
+        <div className="group/deliverable">
+          {workstreams.map(w => (
+            <ProjectRow
+              key={w.id}
+              project={{ ...w, clientName: client.name }}
+              columns={columns}
+              users={users}
+              weeklyHours={weeklyHours}
+              onUpdateHours={onUpdateHours}
+              selectedPersonId={selectedPersonId}
+              onProjectClick={onProjectClick}
+              onCellClick={onCellClick}
+              projectWeekNotes={projectWeekNotes}
+              milestones={milestones}
+              onUpdateProjectNote={onUpdateProjectNote}
+              onUpdateProjectStatus={onUpdateProjectStatus}
+              indent
+            />
+          ))}
+          <InlineAddRow
+            indent
+            label="Add workstream"
+            className="opacity-0 group-hover/deliverable:opacity-100 focus-within:opacity-100 pl-6"
+            onAdd={(name) => onAddProjectDirect(name, client.id, parent.id)}
+          />
+        </div>
+      )}
+    </div>
+  );
+};
+
 // Client Group Component
 const ClientGroup: React.FC<{
   client: Client;
@@ -839,7 +952,7 @@ const ClientGroup: React.FC<{
   onProjectClick: (project: Project) => void;
   onCellClick: (projectId: string, column: GridColumn) => void;
   onAddProject: (clientId: string, category?: Category) => void;
-  onAddProjectDirect: (name: string, clientId: string) => void;
+  onAddProjectDirect: (name: string, clientId: string, parentId?: string) => void;
   onReorderProjects: (orderedIds: string[]) => void;
   onManageProjects: () => void;
   onRenameClient: (currentName: string) => void;
@@ -997,6 +1110,35 @@ const ClientGroup: React.FC<{
           {orderedProjectIds.map((pid, index) => {
             const p = projects.find(pr => pr.id === pid);
             if (!p) return null;
+            // Werkstromen worden onder hun opdracht getoond — tenzij die opdracht
+            // zelf is weggefilterd, want dan zou de werkstroom helemaal verdwijnen.
+            if (p.parentId && projects.some(pr => pr.id === p.parentId)) return null;
+
+            const workstreams = projects.filter(pr => pr.parentId === p.id);
+            if (workstreams.length > 0) {
+              return (
+                <DeliverableGroup
+                  key={p.id}
+                  parent={p}
+                  workstreams={workstreams}
+                  client={client}
+                  columns={columns}
+                  users={users}
+                  weeklyHours={weeklyHours}
+                  onUpdateHours={onUpdateHours}
+                  selectedPersonId={selectedPersonId}
+                  onProjectClick={onProjectClick}
+                  onCellClick={onCellClick}
+                  projectWeekNotes={projectWeekNotes}
+                  milestones={milestones}
+                  onUpdateProjectNote={onUpdateProjectNote}
+                  onUpdateProjectStatus={onUpdateProjectStatus}
+                  onAddProjectDirect={onAddProjectDirect}
+                  expandState={expandState}
+                />
+              );
+            }
+
             return (
               <ProjectRow
                 key={p.id}

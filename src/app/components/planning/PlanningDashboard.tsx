@@ -399,19 +399,23 @@ export const PlanningDashboard: React.FC = () => {
     commitProjects(newProjects);
   };
 
-  const handleAddProjectDirect = (name: string, clientId: string) => {
+  const handleAddProjectDirect = (name: string, clientId: string, parentId?: string) => {
       // Find client to determine category
       const client = clients.find(c => c.id === clientId);
-      const category = client?.defaultCategory || "Billable projects";
+      const parent = parentId ? projects.find(p => p.id === parentId) : undefined;
+      // Een werkstroom erft de categorie van zijn opdracht, zodat hij niet in een
+      // andere sectie van het grid belandt dan de rij eromheen.
+      const category = parent?.category || client?.defaultCategory || "Billable projects";
 
       const newProject: Project = {
           id: Math.random().toString(36).substr(2, 9),
           name,
           clientId,
           category,
-          status: "Active",
+          status: parent?.status || "Active",
           team: [],
           budget: 0,
+          parentId: parentId || null,
           order: projects.filter(p => p.clientId === clientId).length + 1
       };
 
@@ -448,7 +452,12 @@ export const PlanningDashboard: React.FC = () => {
 
   const handleDeleteProject = (id: string) => {
     const prevProjects = projects;
-    const newProjects = projects.filter(p => p.id !== id);
+    // Werkstromen onder dit project worden losse projecten (de FK staat op
+    // `on delete set null`); zonder dit blijft parentId naar een verdwenen rij
+    // wijzen en faalt de eerstvolgende upsert op de foreign key.
+    const newProjects = projects
+      .filter(p => p.id !== id)
+      .map(p => (p.parentId === id ? { ...p, parentId: null } : p));
     setProjects(newProjects);
     // Dedicated row delete (not a whole-array upsert) so we don't wipe rows a
     // concurrent user added. Roll back on failure.
@@ -456,9 +465,13 @@ export const PlanningDashboard: React.FC = () => {
       setProjects(prevProjects);
       toast.error("Couldn't delete project — reverted");
     });
-    // Also clean up related data (persisted by the debounced effects)
+    // Also clean up related data (persisted by the debounced effects). Rows the
+    // database already cascaded away must go here too, or the next save writes
+    // them back and hits the foreign key.
     setWeeklyHours(prev => prev.filter(h => h.projectId !== id));
     setProjectAssignments(prev => prev.filter(a => a.projectId !== id));
+    setProjectWeekNotes(prev => prev.filter(n => n.projectId !== id));
+    setMilestones(prev => prev.filter(m => m.projectId !== id));
   };
 
   // Assignment handlers
@@ -581,6 +594,7 @@ export const PlanningDashboard: React.FC = () => {
         onCreateClient={handleAddClientReturnId}
         milestones={milestones}
         onUpdateMilestones={handleUpdateMilestones}
+        allProjects={projects}
       />
 
       <ClientModal 

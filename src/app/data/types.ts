@@ -37,6 +37,7 @@ export interface Project {
   expectancy?: string; // Free text for pipeline projects
   budget?: number; // Total sold hours
   order?: number;
+  parentId?: string | null; // Opdracht waar deze werkstroom onder valt
 }
 
 export interface ProjectAssignment {
