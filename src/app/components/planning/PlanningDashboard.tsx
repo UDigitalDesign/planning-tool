@@ -399,23 +399,19 @@ export const PlanningDashboard: React.FC = () => {
     commitProjects(newProjects);
   };
 
-  const handleAddProjectDirect = (name: string, clientId: string, parentId?: string) => {
+  const handleAddProjectDirect = (name: string, clientId: string) => {
       // Find client to determine category
       const client = clients.find(c => c.id === clientId);
-      const parent = parentId ? projects.find(p => p.id === parentId) : undefined;
-      // Een werkstroom erft de categorie van zijn opdracht, zodat hij niet in een
-      // andere sectie van het grid belandt dan de rij eromheen.
-      const category = parent?.category || client?.defaultCategory || "Billable projects";
+      const category = client?.defaultCategory || "Billable projects";
 
       const newProject: Project = {
           id: Math.random().toString(36).substr(2, 9),
           name,
           clientId,
           category,
-          status: parent?.status || "Active",
+          status: "Active",
           team: [],
           budget: 0,
-          parentId: parentId || null,
           order: projects.filter(p => p.clientId === clientId).length + 1
       };
 
@@ -452,12 +448,7 @@ export const PlanningDashboard: React.FC = () => {
 
   const handleDeleteProject = (id: string) => {
     const prevProjects = projects;
-    // Werkstromen onder dit project worden losse projecten (de FK staat op
-    // `on delete set null`); zonder dit blijft parentId naar een verdwenen rij
-    // wijzen en faalt de eerstvolgende upsert op de foreign key.
-    const newProjects = projects
-      .filter(p => p.id !== id)
-      .map(p => (p.parentId === id ? { ...p, parentId: null } : p));
+    const newProjects = projects.filter(p => p.id !== id);
     setProjects(newProjects);
     // Dedicated row delete (not a whole-array upsert) so we don't wipe rows a
     // concurrent user added. Roll back on failure.
@@ -594,7 +585,6 @@ export const PlanningDashboard: React.FC = () => {
         onCreateClient={handleAddClientReturnId}
         milestones={milestones}
         onUpdateMilestones={handleUpdateMilestones}
-        allProjects={projects}
       />
 
       <ClientModal 
