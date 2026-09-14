@@ -1,6 +1,6 @@
 import React from "react";
 import { format } from "date-fns";
-import { ChevronLeft, ChevronRight, Filter, ChevronsDown, ChevronsUp, BarChart3, Rows2, Rows3 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Filter, ChevronsDown, ChevronsUp, BarChart3, Rows2, Rows3, LogOut } from "lucide-react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { User, ProjectStatus } from "../../data/mockData";
@@ -10,6 +10,7 @@ import { Separator } from "../ui/separator";
 import { Checkbox } from "../ui/checkbox";
 import { UserFilter } from "./UserFilter";
 import { cn } from "@/lib/utils";
+import { supabase } from "../../services/supabaseClient";
 
 interface HeaderProps {
   currentDate: Date;
@@ -180,6 +181,15 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
             </PopoverContent>
           </Popover>
+
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => supabase.auth.signOut()}
+            title="Uitloggen"
+          >
+            <LogOut className="h-4 w-4" />
+          </Button>
         </div>
       </div>
     </div>
