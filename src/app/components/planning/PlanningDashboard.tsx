@@ -497,7 +497,7 @@ export const PlanningDashboard: React.FC = () => {
       {/* Sticky Capacity Overview */}
       {/* Main Grid Scrollable Area — CapacityOverview is inside the same scroll container for column alignment */}
       <div className="flex-1 overflow-auto bg-background">
-        <div ref={stickyRef} className="sticky top-0 z-20 border-b bg-background">
+        <div ref={stickyRef} className="sticky top-0 z-[45] border-b bg-background">
           <CapacityOverview
             columns={columns}
             users={users}
