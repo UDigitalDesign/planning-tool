@@ -2,7 +2,7 @@ import React, { useState, useRef } from "react";
 import { useDrag, useDrop } from "react-dnd";
 import { format, addDays } from "date-fns";
 import { User, Project, WeeklyHour, ProjectWeekNote, ProjectStatus, Milestone } from "../../data/types";
-import { Archive, Check, GripVertical, Diamond } from "lucide-react";
+import { Archive, Check, GripVertical } from "lucide-react";
 import { Input } from "../ui/input";
 import { cn } from "../../../lib/utils";
 import { GridColumn } from "../../utils/dateUtils";
@@ -241,23 +241,24 @@ const CellMilestones = ({ items }: { items: Milestone[] }) => {
     if (items.length === 0) return null;
 
     const today = format(new Date(), "yyyy-MM-dd");
-    const worst = items.some(m => !m.done && m.dueDate < today)
-        ? "overdue"
-        : items.every(m => m.done)
-            ? "done"
-            : "open";
-
-    const color = worst === "overdue"
-        ? "text-red-500 fill-red-500"
-        : worst === "done"
-            ? "text-emerald-500 fill-emerald-500"
-            : "text-violet-400 fill-violet-400";
+    // De vorm zegt wat voor deadline het is: gevuld = hard, open = zacht.
+    // Een datum die al geweest is zakt naar de achtergrond.
+    const past = items.every(m => m.dueDate < today);
+    const anyHard = items.some(m => !m.soft);
+    const tone = past ? "border-muted-foreground/60 bg-muted-foreground/60" : "border-emerald-400 bg-emerald-400";
 
     return (
         <Tooltip delayDuration={0}>
             <TooltipTrigger asChild>
-                <span className="absolute z-20 top-0.5 left-1 flex items-center gap-0.5 pointer-events-auto">
-                    <Diamond className={cn("h-2.5 w-2.5", color)} />
+                <span className="absolute z-20 top-1 left-1 flex items-center gap-0.5 pointer-events-auto">
+                    <span
+                        className={cn(
+                            "block h-2 w-2 rotate-45 box-border",
+                            anyHard
+                                ? tone.split(" ")[1]
+                                : cn("border-[1.5px] bg-transparent", tone.split(" ")[0])
+                        )}
+                    />
                     {items.length > 1 && (
                         <span className="text-[9px] leading-none text-muted-foreground">{items.length}</span>
                     )}
@@ -266,8 +267,9 @@ const CellMilestones = ({ items }: { items: Milestone[] }) => {
             <TooltipContent side="top" className="z-50">
                 <div className="space-y-0.5">
                     {items.map(m => (
-                        <p key={m.id} className={cn("text-xs", m.done && "line-through opacity-60")}>
+                        <p key={m.id} className="text-xs">
                             {m.dueDate.split("-").reverse().join("-")} — {m.title}
+                            {m.soft && <span className="text-muted-foreground"> · zacht</span>}
                         </p>
                     ))}
                 </div>

@@ -37,6 +37,7 @@ export interface Project {
   expectancy?: string; // Free text for pipeline projects
   budget?: number; // Total sold hours
   order?: number;
+  startDate?: string | null; // yyyy-MM-dd, begin van de balk op de tijdlijn
 }
 
 export interface ProjectAssignment {
@@ -73,5 +74,5 @@ export interface Milestone {
   title: string;
   dueDate: string;        // yyyy-MM-dd
   endDate?: string | null; // gevuld bij een periode (bv. design sprint), anders null
-  done: boolean;
+  soft: boolean;           // zachte deadline (intern) i.p.v. harde (richting klant)
 }

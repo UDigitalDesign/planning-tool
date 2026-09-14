@@ -16,6 +16,7 @@ import { toast } from "sonner";
 
 import { UserManagementModal } from "./UserManagementModal";
 import { PeriodOverviewModal } from "./PeriodOverviewModal";
+import { TimelineView } from "./TimelineView";
 
 export const PlanningDashboard: React.FC = () => {
   const [currentDate, setCurrentDate] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
@@ -143,6 +144,18 @@ export const PlanningDashboard: React.FC = () => {
   const [selectedPersonId, setSelectedPersonId] = useState<string | "all">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatuses, setSelectedStatuses] = useState<ProjectStatus[]>(["Pipeline", "Active", "On Hold"]);
+
+  // Hours grid or timeline. Remembered across reloads, like the density setting.
+  const [view, setView] = useState<"hours" | "timeline">(() => {
+    if (typeof window !== "undefined") {
+      const stored = window.localStorage.getItem("planning-view");
+      if (stored === "hours" || stored === "timeline") return stored;
+    }
+    return "hours";
+  });
+  React.useEffect(() => {
+    try { window.localStorage.setItem("planning-view", view); } catch { /* ignore */ }
+  }, [view]);
 
   // Row density (comfortable for entry, compact for scanning). Remembered across reloads.
   const [density, setDensity] = useState<"compact" | "comfortable">(() => {
@@ -521,10 +534,25 @@ export const PlanningDashboard: React.FC = () => {
         onOpenOverview={() => setIsOverviewOpen(true)}
         density={density}
         onDensityChange={setDensity}
+        view={view}
+        onViewChange={setView}
       />
 
-      {/* Sticky Capacity Overview */}
-      {/* Main Grid Scrollable Area — CapacityOverview is inside the same scroll container for column alignment */}
+      {view === "timeline" ? (
+        <TimelineView
+          currentDate={currentDate}
+          projects={projects}
+          clients={clients}
+          weeklyHours={weeklyHours}
+          milestones={milestones}
+          selectedPersonId={selectedPersonId}
+          selectedStatuses={selectedStatuses}
+          searchQuery={searchQuery}
+          onProjectClick={setEditingProject}
+        />
+      ) : (
+      /* Sticky Capacity Overview */
+      /* Main Grid Scrollable Area — CapacityOverview is inside the same scroll container for column alignment */
       <div className="flex-1 overflow-auto bg-background">
         <div ref={stickyRef} className="sticky top-0 z-[45] border-b bg-background">
           <CapacityOverview
@@ -571,6 +599,7 @@ export const PlanningDashboard: React.FC = () => {
           stickyOffset={stickyOffset}
         />
       </div>
+      )}
 
       <ProjectModal 
         project={editingProject}

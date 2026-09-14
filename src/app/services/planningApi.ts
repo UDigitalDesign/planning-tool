@@ -20,7 +20,7 @@ const mapMilestoneFromDb = (row: any): Milestone => ({
   title: row.title,
   dueDate: row.due_date,
   endDate: row.end_date ?? null,
-  done: !!row.done,
+  soft: !!row.soft,
 });
 
 const mapMilestoneToDb = (m: Milestone) => ({
@@ -29,7 +29,7 @@ const mapMilestoneToDb = (m: Milestone) => ({
   title: m.title,
   due_date: m.dueDate,
   end_date: m.endDate || null,
-  done: m.done,
+  soft: m.soft,
 });
 
 const mapUserFromDb = (row: any): User => ({
@@ -84,6 +84,7 @@ const mapProjectFromDb = (row: any): Project => ({
   expectancy: row.expectancy ?? undefined,
   budget: row.budget != null ? Number(row.budget) : undefined,
   order: row.order ?? undefined,
+  startDate: row.start_date ?? null,
 });
 
 const mapProjectToDb = (p: Project) => ({
@@ -98,6 +99,7 @@ const mapProjectToDb = (p: Project) => ({
   expectancy: p.expectancy ?? null,
   budget: p.budget ?? null,
   order: p.order ?? null,
+  start_date: p.startDate || null,
 });
 
 const mapHourFromDb = (row: any): WeeklyHour => ({

@@ -234,6 +234,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
   const [pendingTeam, setPendingTeam] = useState<string[]>([]);
   const [newMilestoneTitle, setNewMilestoneTitle] = useState("");
   const [newMilestoneDate, setNewMilestoneDate] = useState("");
+  const [newMilestoneSoft, setNewMilestoneSoft] = useState(false);
 
   useEffect(() => {
     if (project) {
@@ -281,7 +282,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
         title: newMilestoneTitle.trim(),
         dueDate: newMilestoneDate,
         endDate: null,
-        done: false,
+        soft: newMilestoneSoft,
       },
     ]);
     setNewMilestoneTitle("");
@@ -411,6 +412,20 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
                     </Select>
                 </div>
                 
+                {/* Begin van de balk op de tijdlijn. Het einde volgt uit de
+                    laatste deadline, zodat er niets dubbel bijgehouden wordt. */}
+                <div className="space-y-1">
+                    <label className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">
+                        Startdatum
+                    </label>
+                    <Input
+                      type="date"
+                      value={formData.startDate || ""}
+                      onChange={(e) => handleChange("startDate", e.target.value || null)}
+                      className="w-full h-9 bg-zinc-900 border-zinc-800 text-zinc-100 text-xs focus-visible:ring-zinc-700"
+                    />
+                </div>
+
                  <div className="space-y-1">
                    <label className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">
                        Budget (Hours)
@@ -488,19 +503,19 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
                        <button
                          type="button"
                          onClick={() => commitMilestones(
-                           projectMilestones.map(x => x.id === m.id ? { ...x, done: !x.done } : x)
+                           projectMilestones.map(x => x.id === m.id ? { ...x, soft: !x.soft } : x)
                          )}
-                         className={cn(
-                           "w-4 h-4 rounded border flex items-center justify-center flex-none transition-colors",
-                           m.done
-                             ? "bg-emerald-600 border-emerald-600 text-white"
-                             : "border-zinc-700 hover:border-zinc-500"
-                         )}
-                         title={m.done ? "Markeer als open" : "Markeer als gehaald"}
+                         className="w-3 h-3 flex items-center justify-center flex-none"
+                         title={m.soft ? "Zachte deadline — klik voor hard" : "Harde deadline — klik voor zacht"}
                        >
-                         {m.done && <Check className="h-2.5 w-2.5" />}
+                         <span
+                           className={cn(
+                             "block w-2 h-2 rotate-45 box-border",
+                             m.soft ? "border-[1.5px] border-emerald-400" : "bg-emerald-400"
+                           )}
+                         />
                        </button>
-                       <span className={cn("flex-1 truncate", m.done ? "text-zinc-600 line-through" : "text-zinc-200")}>
+                       <span className="flex-1 truncate text-zinc-200">
                          {m.title}
                        </span>
                        <span className="text-[10px] text-zinc-500 tabular-nums flex-none">
@@ -522,6 +537,19 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
                  </div>
 
                  <div className="flex gap-1.5 pt-1">
+                   <button
+                     type="button"
+                     onClick={() => setNewMilestoneSoft(v => !v)}
+                     className="h-8 w-8 flex-none flex items-center justify-center rounded-md border border-zinc-800 bg-zinc-900 hover:border-zinc-700"
+                     title={newMilestoneSoft ? "Zachte deadline" : "Harde deadline"}
+                   >
+                     <span
+                       className={cn(
+                         "block w-2.5 h-2.5 rotate-45 box-border",
+                         newMilestoneSoft ? "border-[1.5px] border-emerald-400" : "bg-emerald-400"
+                       )}
+                     />
+                   </button>
                    <Input
                      value={newMilestoneTitle}
                      onChange={(e) => setNewMilestoneTitle(e.target.value)}

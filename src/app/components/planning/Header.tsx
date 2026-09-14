@@ -1,6 +1,6 @@
 import React from "react";
 import { format } from "date-fns";
-import { ChevronLeft, ChevronRight, Filter, ChevronsDown, ChevronsUp, BarChart3, Rows2, Rows3, LogOut } from "lucide-react";
+import { ChevronLeft, ChevronRight, Filter, ChevronsDown, ChevronsUp, BarChart3, Rows2, Rows3, LogOut, GanttChartSquare } from "lucide-react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { User, ProjectStatus } from "../../data/types";
@@ -29,6 +29,8 @@ interface HeaderProps {
   onOpenOverview: () => void;
   density: "compact" | "comfortable";
   onDensityChange: (density: "compact" | "comfortable") => void;
+  view: "hours" | "timeline";
+  onViewChange: (view: "hours" | "timeline") => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -48,6 +50,8 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenOverview,
   density,
   onDensityChange,
+  view,
+  onViewChange,
 }) => {
   const allStatuses: ProjectStatus[] = ["Pipeline", "Active", "Completed", "On Hold", "Archived"];
 
@@ -94,6 +98,27 @@ export const Header: React.FC<HeaderProps> = ({
             <BarChart3 className="h-3.5 w-3.5" />
             Overview
           </Button>
+
+          {/* Zelfde projecten, andere tekening: uren per week of looptijd in de tijd. */}
+          <div className="flex items-center gap-1 bg-muted rounded-md p-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onViewChange("hours")}
+              className={cn("h-7 px-2.5 text-xs", view === "hours" && "bg-background shadow-sm")}
+            >
+              Hours
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onViewChange("timeline")}
+              className={cn("h-7 px-2.5 text-xs gap-1.5", view === "timeline" && "bg-background shadow-sm")}
+            >
+              <GanttChartSquare className="h-3.5 w-3.5" />
+              Timeline
+            </Button>
+          </div>
         </div>
 
         <div className="flex items-center gap-4">
