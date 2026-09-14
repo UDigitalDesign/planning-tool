@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import {
   User, Project, Client, WeeklyHour, WeeklyNote, ProjectWeekNote, ProjectAssignment,
   Category, ProjectStatus
-} from "../../data/mockData";
+} from "../../data/types";
 import { getWeeksForMonth, formatDateKey, generateGridColumns } from "../../utils/dateUtils";
 import { Header } from "./Header";
 import { CapacityOverview } from "./CapacityOverview";

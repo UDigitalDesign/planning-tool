@@ -1,7 +1,7 @@
 import React, { useState, useRef } from "react";
 import { useDrag, useDrop } from "react-dnd";
 import { ChevronDown, ChevronRight, Plus, MoreHorizontal, Pencil, ChevronsDown, ChevronsUp, Archive, GripVertical } from "lucide-react";
-import { Project, Client, User, WeeklyHour, Category, ProjectStatus, ProjectWeekNote, ProjectAssignment } from "../../data/mockData";
+import { Project, Client, User, WeeklyHour, Category, ProjectStatus, ProjectWeekNote, ProjectAssignment } from "../../data/types";
 import { ProjectRow } from "./ProjectRow";
 import { DensityContext, useDensity, Density } from "./DensityContext";
 import { cn } from "../../../lib/utils";

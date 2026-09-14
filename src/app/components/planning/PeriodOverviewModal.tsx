@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "../ui/button";
 import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { User, Project, Client, WeeklyHour } from "../../data/mockData";
+import { User, Project, Client, WeeklyHour } from "../../data/types";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 
 const BILLING_RATE = 116; // Standard billing rate €/h

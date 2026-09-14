@@ -3,7 +3,7 @@ import { format } from "date-fns";
 import { ChevronLeft, ChevronRight, Filter, ChevronsDown, ChevronsUp, BarChart3, Rows2, Rows3, LogOut } from "lucide-react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
-import { User, ProjectStatus } from "../../data/mockData";
+import { User, ProjectStatus } from "../../data/types";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { Label } from "../ui/label";
 import { Separator } from "../ui/separator";

@@ -1,7 +1,7 @@
 import React, { useState, useRef } from "react";
 import { useDrag, useDrop } from "react-dnd";
 import { format } from "date-fns";
-import { User, Project, WeeklyHour, ProjectWeekNote, ProjectStatus } from "../../data/mockData";
+import { User, Project, WeeklyHour, ProjectWeekNote, ProjectStatus } from "../../data/types";
 import { Archive, Check, GripVertical } from "lucide-react";
 import { Input } from "../ui/input";
 import { cn } from "../../../lib/utils";

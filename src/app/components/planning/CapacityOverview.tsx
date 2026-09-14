@@ -1,6 +1,6 @@
 import React from "react";
 import { format, endOfWeek } from "date-fns";
-import { User, WeeklyHour } from "../../data/mockData";
+import { User, WeeklyHour } from "../../data/types";
 import { cn } from "../../../lib/utils";
 import { GridColumn } from "../../utils/dateUtils";
 

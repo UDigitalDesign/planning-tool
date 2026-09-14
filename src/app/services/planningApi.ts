@@ -7,7 +7,7 @@ import {
   ProjectAssignment,
   ProjectWeekNote,
   WeeklyNote,
-} from "../data/mockData";
+} from "../data/types";
 
 // ============================================================
 // Mapping helpers: DB (snake_case) <-> App (camelCase)

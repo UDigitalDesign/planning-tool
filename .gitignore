@@ -17,3 +17,6 @@ supabase/.branches/
 # Editor / OS
 .DS_Store
 *.log
+
+.vercel
+.env*

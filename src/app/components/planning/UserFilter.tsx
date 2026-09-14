@@ -1,5 +1,5 @@
 import React from "react";
-import { User } from "../../data/mockData";
+import { User } from "../../data/types";
 import { UserAvatar } from "./UserAvatar";
 import { cn } from "@/lib/utils";
 

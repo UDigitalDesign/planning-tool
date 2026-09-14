@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Dialog, DialogContent, DialogFooter, DialogTitle, DialogDescription, DialogHeader } from "../ui/dialog";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
-import { Client } from "../../data/mockData";
+import { Client } from "../../data/types";
 import { Plus, Archive, Edit2, Check, X } from "lucide-react";
 import {
   Table,

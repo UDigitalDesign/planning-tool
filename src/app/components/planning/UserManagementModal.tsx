@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { User } from "../../data/mockData";
+import { User } from "../../data/types";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "../ui/dialog";
 import { 
   AlertDialog, 

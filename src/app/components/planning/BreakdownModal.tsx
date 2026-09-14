@@ -7,7 +7,7 @@ import {
   DialogDescription,
 } from "../ui/dialog";
 import { Avatar, AvatarFallback } from "../ui/avatar";
-import { User } from "../../data/mockData";
+import { User } from "../../data/types";
 import { cn } from "../../../lib/utils";
 import { Check } from "lucide-react";
 
