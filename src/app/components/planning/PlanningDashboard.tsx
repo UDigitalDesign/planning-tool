@@ -1,12 +1,5 @@
 import React, { useState } from "react";
-import { 
-  users as initialUsers, 
-  projects as initialProjects, 
-  clients as initialClients, 
-  weeklyHours as initialWeeklyHours,
-  weeklyNotes as initialWeeklyNotes,
-  projectWeekNotes as initialProjectWeekNotes,
-  projectAssignments as initialAssignments,
+import {
   User, Project, Client, WeeklyHour, WeeklyNote, ProjectWeekNote, ProjectAssignment,
   Category, ProjectStatus
 } from "../../data/mockData";
@@ -28,12 +21,12 @@ export const PlanningDashboard: React.FC = () => {
   const [currentDate, setCurrentDate] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
   
   // Data State
-  const [users, setUsers] = useState<User[]>(initialUsers);
-  const [projects, setProjects] = useState<Project[]>(initialProjects);
-  const [clients, setClients] = useState<Client[]>(initialClients);
-  const [weeklyHours, setWeeklyHours] = useState<WeeklyHour[]>(initialWeeklyHours);
-  const [projectWeekNotes, setProjectWeekNotes] = useState<ProjectWeekNote[]>(initialProjectWeekNotes);
-  const [projectAssignments, setProjectAssignments] = useState<ProjectAssignment[]>(initialAssignments);
+  const [users, setUsers] = useState<User[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [weeklyHours, setWeeklyHours] = useState<WeeklyHour[]>([]);
+  const [projectWeekNotes, setProjectWeekNotes] = useState<ProjectWeekNote[]>([]);
+  const [projectAssignments, setProjectAssignments] = useState<ProjectAssignment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const isFirstRender = React.useRef(true);
 
@@ -43,40 +36,14 @@ export const PlanningDashboard: React.FC = () => {
       try {
         const data = await planningApi.getData();
         
-        // Users
-        if (data.users && data.users.length > 0) {
-          setUsers(data.users);
-        } else {
-          // Seed users if DB is empty
-          await planningApi.saveUsers(initialUsers);
-        }
-
-        // Projects
-        if (data.projects && data.projects.length > 0) {
-          setProjects(data.projects);
-        } else {
-          await planningApi.saveProjects(initialProjects);
-        }
-
-        // Clients
-        if (data.clients && data.clients.length > 0) {
-          setClients(data.clients);
-        } else if (initialClients.length > 0) {
-          await planningApi.saveClients(initialClients);
-        }
-
-        // Weekly hours
-        if (data.weeklyHours) setWeeklyHours(data.weeklyHours);
-
-        // Assignments
-        if (data.assignments && data.assignments.length > 0) {
-          setProjectAssignments(data.assignments);
-        } else if (initialAssignments.length > 0) {
-          await planningApi.saveAssignments(initialAssignments);
-        }
-
-        // Project week notes
-        if (data.projectWeekNotes) setProjectWeekNotes(data.projectWeekNotes);
+        // The database is the source of truth — never seed from mock data,
+        // its ids do not match the live rows and the inserts fail on foreign keys.
+        setUsers(data.users ?? []);
+        setProjects(data.projects ?? []);
+        setClients(data.clients ?? []);
+        setWeeklyHours(data.weeklyHours ?? []);
+        setProjectAssignments(data.assignments ?? []);
+        setProjectWeekNotes(data.projectWeekNotes ?? []);
 
       } catch (error) {
         console.error("Failed to load data", error);
@@ -90,7 +57,8 @@ export const PlanningDashboard: React.FC = () => {
 
   // Debounced save for weekly hours
   React.useEffect(() => {
-    if (isLoading || isFirstRender.current) {
+    if (isLoading) return;
+    if (isFirstRender.current) {
       isFirstRender.current = false;
       return;
     }
@@ -107,7 +75,8 @@ export const PlanningDashboard: React.FC = () => {
   // Debounced save for assignments
   const isFirstAssignmentRender = React.useRef(true);
   React.useEffect(() => {
-    if (isLoading || isFirstAssignmentRender.current) {
+    if (isLoading) return;
+    if (isFirstAssignmentRender.current) {
       isFirstAssignmentRender.current = false;
       return;
     }
@@ -124,7 +93,8 @@ export const PlanningDashboard: React.FC = () => {
   // Debounced save for project week notes
   const isFirstNotesRender = React.useRef(true);
   React.useEffect(() => {
-    if (isLoading || isFirstNotesRender.current) {
+    if (isLoading) return;
+    if (isFirstNotesRender.current) {
       isFirstNotesRender.current = false;
       return;
     }
